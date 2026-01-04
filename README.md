@@ -109,9 +109,46 @@ pvm cache savings               # Show disk space savings
 pvm cache clean                 # Remove orphaned packages
 ```
 
+### Configuration
+
+```bash
+pvm config show                 # Show current configuration
+pvm config get <key>            # Get a config value
+pvm config set <key> <value>    # Set a config value
+pvm config sync                 # Regenerate shell.conf from config.toml
+pvm config reset                # Reset configuration to defaults
+```
+
+Available config keys:
+- `shell.legacy_commands` - Enable legacy aliases (default: true)
+- `shell.pip_wrapper` - Enable automatic pip wrapping (default: true)
+- `general.auto_update_days` - Metadata auto-update interval (default: 7)
+- `general.colored_output` - Enable colored output (default: true)
+- `dedup.enabled` - Enable package deduplication (default: true)
+- `dedup.link_strategy` - Link strategy: auto, hardlink, clone, copy (default: auto)
+
+### Shell Completion
+
+PVM supports tab completion for Bash and Zsh:
+
+```bash
+# Completions are automatically loaded when you source pvm.sh
+source ~/.pvm/pvm.sh
+
+# Or generate standalone completion scripts
+pvm completion bash > ~/.bash_completion.d/pvm
+pvm completion zsh > ~/.zfunc/_pvm
+```
+
+Supported completions:
+- Commands and subcommands
+- Environment names (`pvm env activate <TAB>`)
+- Python versions (`pvm python install <TAB>`)
+- Config keys and values (`pvm config set <TAB>`)
+
 ### Aliases
 
-For users migrating from other tools, legacy aliases are available:
+For users migrating from other tools, legacy aliases are available (can be disabled via `pvm config set shell.legacy_commands false`):
 
 ```bash
 mkenv <version> <name>    # → pvm env create <name> <version>
@@ -188,6 +225,8 @@ crates/
 ```
 
 ## Configuration
+
+Configuration is stored in `~/.pvm/config.toml`. Use `pvm config` commands to manage settings.
 
 Set `PVM_HOME` to customize the installation directory:
 
