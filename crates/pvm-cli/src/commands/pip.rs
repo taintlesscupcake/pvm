@@ -14,12 +14,9 @@ pub enum PipCommands {
         #[arg(short, long)]
         env: Option<String>,
 
-        /// Packages to install
-        packages: Vec<String>,
-
-        /// Extra arguments to pass to pip
-        #[arg(last = true)]
-        extra_args: Vec<String>,
+        /// Arguments to pass to pip install (packages, -r requirements.txt, etc.)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
     },
 
     /// Sync all packages in an environment with the cache
@@ -34,13 +31,9 @@ pub async fn execute(command: PipCommands) -> Result<()> {
     let config = Config::load().context("Failed to load configuration")?;
 
     match command {
-        PipCommands::Install {
-            env,
-            packages,
-            extra_args,
-        } => {
+        PipCommands::Install { env, args } => {
             let env_name = resolve_env_name(&config, env)?;
-            pip_install(&config, &env_name, &packages, &extra_args)
+            pip_install(&config, &env_name, &args)
         }
         PipCommands::Sync { env } => {
             let env_name = resolve_env_name(&config, env)?;
@@ -83,12 +76,7 @@ fn resolve_env_name(config: &Config, env: Option<String>) -> Result<String> {
     )
 }
 
-fn pip_install(
-    config: &Config,
-    env_name: &str,
-    packages: &[String],
-    extra_args: &[String],
-) -> Result<()> {
+fn pip_install(config: &Config, env_name: &str, args: &[String]) -> Result<()> {
     // Check if environment exists
     let venv_manager = VenvManager::new(config.clone());
     if !venv_manager.exists(env_name) {
@@ -106,13 +94,12 @@ fn pip_install(
     let mut wrapper = PipWrapper::new(env_path, config.clone())
         .context("Failed to create pip wrapper")?;
 
-    // Convert packages to &str
-    let pkg_refs: Vec<&str> = packages.iter().map(|s| s.as_str()).collect();
-    let arg_refs: Vec<&str> = extra_args.iter().map(|s| s.as_str()).collect();
+    // Convert args to &str
+    let arg_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
 
     // Install packages
     let result = wrapper
-        .install(&pkg_refs, &arg_refs)
+        .install(&arg_refs)
         .context("Failed to install packages")?;
 
     // Show results

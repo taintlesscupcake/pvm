@@ -17,6 +17,9 @@ pvm() {
             script=$("$PVM_BIN" env activation-script "$@" 2>&1)
             if [ $? -eq 0 ] && [ -f "$script" ]; then
                 source "$script"
+
+                # Set up pip wrapper for deduplication
+                _pvm_setup_pip_wrapper
             else
                 echo "$script" >&2
                 return 1
@@ -142,6 +145,39 @@ if [ -n "$ZSH_VERSION" ]; then
     }
     compdef _pvm pvm
 fi
+
+# pip wrapper setup - intercepts pip install to use pvm deduplication
+_pvm_setup_pip_wrapper() {
+    # Save original deactivate function
+    if type deactivate &>/dev/null; then
+        eval "_pvm_original_deactivate() { $(declare -f deactivate | tail -n +2); }"
+    fi
+
+    # Define pip wrapper function
+    pip() {
+        case "$1" in
+            install)
+                shift
+                pvm pip install "$@"
+                ;;
+            *)
+                command pip "$@"
+                ;;
+        esac
+    }
+
+    # Wrap deactivate to clean up pip wrapper
+    deactivate() {
+        # Remove pip wrapper
+        unset -f pip 2>/dev/null
+
+        # Call original deactivate
+        if type _pvm_original_deactivate &>/dev/null; then
+            _pvm_original_deactivate "$@"
+            unset -f _pvm_original_deactivate 2>/dev/null
+        fi
+    }
+}
 
 # Add pvm to PATH if not already there
 if [[ ":$PATH:" != *":$PVM_HOME/bin:"* ]]; then

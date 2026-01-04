@@ -41,11 +41,8 @@ pvm env create myproject 3.12
 # Activate it
 pvm env activate myproject
 
-# Install packages (with deduplication across environments)
-pvm pip install requests numpy
-
-# Or use regular pip (no deduplication)
-pip install pandas
+# Install packages - pip is automatically wrapped for deduplication!
+pip install requests numpy pandas
 
 # Deactivate when done
 pvm env deactivate
@@ -75,14 +72,32 @@ pvm env remove <name>           # Remove environment
 
 ### Package Management (with Deduplication)
 
+When a pvm environment is activated, `pip install` is automatically wrapped to use deduplication:
+
 ```bash
-# When environment is activated (auto-detects from VIRTUAL_ENV)
-pvm pip install <packages>           # Install packages with deduplication
+# Activate environment first
+pvm env activate myproject
+
+# pip install now uses deduplication automatically!
+pip install requests numpy           # → routes to pvm pip install
+pip install -r requirements.txt      # Works with all pip install options
+
+# Other pip commands work normally
+pip uninstall requests               # → uses regular pip
+pip freeze                           # → uses regular pip
+pip list                             # → uses regular pip
+```
+
+You can also use `pvm pip` explicitly:
+
+```bash
+pvm pip install <packages>           # Install with deduplication
+pvm pip install -r requirements.txt  # Supports all pip options
 pvm pip sync                         # Deduplicate existing packages
 
-# Or specify environment explicitly
-pvm pip install -e <env> <packages>  # Install to specific environment
-pvm pip sync -e <env>                # Sync specific environment
+# Specify environment without activating
+pvm pip install -e <env> <packages>
+pvm pip sync -e <env>
 ```
 
 ### Cache Management
@@ -133,9 +148,9 @@ deact                     # → pvm env deactivate
 
 3. **Environment Creation**: Uses Python's built-in `venv` module to create isolated environments
 
-4. **Activation**: Shell wrapper sources the environment's activate script
+4. **Activation**: Shell wrapper sources the environment's activate script and wraps `pip install` to automatically use deduplication
 
-5. **Package Deduplication**: When installing packages via `pvm pip install`, identical packages across environments are stored once in a global cache and hardlinked to each environment's site-packages. This can save significant disk space when multiple environments share common packages like NumPy, PyTorch, etc.
+5. **Package Deduplication**: When installing packages (via `pip install` in an activated environment or `pvm pip install`), identical packages across environments are stored once in a global cache and hardlinked to each environment's site-packages. This can save significant disk space when multiple environments share common packages like NumPy, PyTorch, etc.
 
 ## Supported Platforms
 

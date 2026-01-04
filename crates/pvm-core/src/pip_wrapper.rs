@@ -88,15 +88,14 @@ impl PipWrapper {
     }
 
     /// Install packages with deduplication
-    pub fn install(&mut self, packages: &[&str], extra_args: &[&str]) -> Result<InstallResult> {
+    pub fn install(&mut self, args: &[&str]) -> Result<InstallResult> {
         // 1. Get current package list
         let before = self.list_installed()?;
 
         // 2. Run pip install
         let mut cmd = Command::new(&self.python_path);
         cmd.args(["-m", "pip", "install", "--quiet"]);
-        cmd.args(extra_args);
-        cmd.args(packages);
+        cmd.args(args);
         cmd.current_dir(&self.venv_path);
 
         let status = cmd.status()?;
