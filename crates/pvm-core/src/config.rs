@@ -25,6 +25,57 @@ pub struct Config {
     /// Directory for download cache
     #[serde(default)]
     pub cache_dir: Option<PathBuf>,
+
+    /// Directory for package cache (deduplication)
+    #[serde(default)]
+    pub packages_dir: Option<PathBuf>,
+
+    /// Package deduplication settings
+    #[serde(default)]
+    pub dedup: DedupConfig,
+}
+
+/// Package deduplication configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DedupConfig {
+    /// Enable package deduplication (default: true)
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// Preferred link strategy: "hardlink", "clone", "copy", "auto"
+    #[serde(default = "default_link_strategy")]
+    pub link_strategy: String,
+
+    /// Auto garbage collect unreferenced packages (default: true)
+    #[serde(default = "default_true")]
+    pub auto_gc: bool,
+
+    /// Days to keep unreferenced packages before GC
+    #[serde(default = "default_gc_days")]
+    pub gc_retention_days: u32,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_link_strategy() -> String {
+    "auto".to_string()
+}
+
+fn default_gc_days() -> u32 {
+    30
+}
+
+impl Default for DedupConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_true(),
+            link_strategy: default_link_strategy(),
+            auto_gc: default_true(),
+            gc_retention_days: default_gc_days(),
+        }
+    }
 }
 
 impl Config {
@@ -83,11 +134,18 @@ impl Config {
             .unwrap_or_else(|| self.home.join("envs"))
     }
 
-    /// Get the cache directory
+    /// Get the cache directory (for downloads)
     pub fn cache_dir(&self) -> PathBuf {
         self.cache_dir
             .clone()
             .unwrap_or_else(|| self.home.join("cache"))
+    }
+
+    /// Get the packages directory (for deduplication cache)
+    pub fn packages_dir(&self) -> PathBuf {
+        self.packages_dir
+            .clone()
+            .unwrap_or_else(|| self.home.join("packages"))
     }
 
     /// Get the bin directory
@@ -101,6 +159,7 @@ impl Config {
         std::fs::create_dir_all(self.pythons_dir())?;
         std::fs::create_dir_all(self.envs_dir())?;
         std::fs::create_dir_all(self.cache_dir())?;
+        std::fs::create_dir_all(self.packages_dir())?;
         std::fs::create_dir_all(self.bin_dir())?;
         Ok(())
     }
@@ -113,6 +172,8 @@ impl Default for Config {
             pythons_dir: None,
             envs_dir: None,
             cache_dir: None,
+            packages_dir: None,
+            dedup: DedupConfig::default(),
         }
     }
 }
@@ -148,10 +209,13 @@ mod tests {
             pythons_dir: None,
             envs_dir: None,
             cache_dir: None,
+            packages_dir: None,
+            dedup: DedupConfig::default(),
         };
         assert_eq!(config.home, PathBuf::from("/custom/path"));
         assert_eq!(config.pythons_dir(), PathBuf::from("/custom/path/pythons"));
         assert_eq!(config.envs_dir(), PathBuf::from("/custom/path/envs"));
+        assert_eq!(config.packages_dir(), PathBuf::from("/custom/path/packages"));
     }
 
     #[test]
@@ -161,10 +225,13 @@ mod tests {
             pythons_dir: Some(PathBuf::from("/custom/pythons")),
             envs_dir: Some(PathBuf::from("/custom/envs")),
             cache_dir: Some(PathBuf::from("/custom/cache")),
+            packages_dir: Some(PathBuf::from("/custom/packages")),
+            dedup: DedupConfig::default(),
         };
         assert_eq!(config.pythons_dir(), PathBuf::from("/custom/pythons"));
         assert_eq!(config.envs_dir(), PathBuf::from("/custom/envs"));
         assert_eq!(config.cache_dir(), PathBuf::from("/custom/cache"));
+        assert_eq!(config.packages_dir(), PathBuf::from("/custom/packages"));
     }
 
     // ========== Serialization Tests ==========
@@ -176,6 +243,8 @@ mod tests {
             pythons_dir: Some(PathBuf::from("/test/pythons")),
             envs_dir: None,
             cache_dir: None,
+            packages_dir: None,
+            dedup: DedupConfig::default(),
         };
 
         let toml_str = toml::to_string(&config).unwrap();
@@ -195,6 +264,8 @@ mod tests {
             pythons_dir: None,
             envs_dir: None,
             cache_dir: None,
+            packages_dir: None,
+            dedup: DedupConfig::default(),
         };
 
         config.ensure_dirs().unwrap();
@@ -203,6 +274,7 @@ mod tests {
         assert!(config.pythons_dir().exists());
         assert!(config.envs_dir().exists());
         assert!(config.cache_dir().exists());
+        assert!(config.packages_dir().exists());
         assert!(config.bin_dir().exists());
     }
 
@@ -217,6 +289,8 @@ mod tests {
             pythons_dir: Some(temp_dir.path().join("custom_pythons")),
             envs_dir: None,
             cache_dir: None,
+            packages_dir: None,
+            dedup: DedupConfig::default(),
         };
 
         // Save directly to temp location

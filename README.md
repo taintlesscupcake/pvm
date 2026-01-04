@@ -7,6 +7,7 @@ A lightweight, standalone Python version and virtual environment manager written
 | Feature | PVM | uv/mise | Anaconda |
 |---------|-----|---------|----------|
 | Shared environments | ✅ | ❌ (project-local) | ✅ |
+| Package deduplication | ✅ (hardlinks) | ✅ | ❌ |
 | No external dependencies | ✅ | ❌ | ❌ |
 | Single binary | ✅ (2.6MB) | ✅ | ❌ |
 | Fast | ✅ | ✅ | ❌ |
@@ -40,8 +41,8 @@ pvm env create myproject 3.12
 # Activate it
 pvm env activate myproject
 
-# Work in your environment...
-pip install requests numpy
+# Install packages - pip is automatically wrapped for deduplication!
+pip install requests numpy pandas
 
 # Deactivate when done
 pvm env deactivate
@@ -69,6 +70,45 @@ pvm env deactivate              # Deactivate current environment
 pvm env remove <name>           # Remove environment
 ```
 
+### Package Management (with Deduplication)
+
+When a pvm environment is activated, `pip install` is automatically wrapped to use deduplication:
+
+```bash
+# Activate environment first
+pvm env activate myproject
+
+# pip install now uses deduplication automatically!
+pip install requests numpy           # → routes to pvm pip install
+pip install -r requirements.txt      # Works with all pip install options
+
+# Other pip commands work normally
+pip uninstall requests               # → uses regular pip
+pip freeze                           # → uses regular pip
+pip list                             # → uses regular pip
+```
+
+You can also use `pvm pip` explicitly:
+
+```bash
+pvm pip install <packages>           # Install with deduplication
+pvm pip install -r requirements.txt  # Supports all pip options
+pvm pip sync                         # Deduplicate existing packages
+
+# Specify environment without activating
+pvm pip install -e <env> <packages>
+pvm pip sync -e <env>
+```
+
+### Cache Management
+
+```bash
+pvm cache info                  # Show cache statistics
+pvm cache list                  # List cached packages
+pvm cache savings               # Show disk space savings
+pvm cache clean                 # Remove orphaned packages
+```
+
 ### Aliases
 
 For users migrating from other tools, legacy aliases are available:
@@ -94,6 +134,9 @@ deact                     # → pvm env deactivate
 ├── envs/                   # Virtual environments
 │   ├── myproject/
 │   └── datascience/
+├── packages/               # Deduplicated package cache
+│   ├── metadata.json       # Cache metadata
+│   └── store/              # Content-addressable storage
 └── cache/                  # Download cache
 ```
 
@@ -105,7 +148,17 @@ deact                     # → pvm env deactivate
 
 3. **Environment Creation**: Uses Python's built-in `venv` module to create isolated environments
 
-4. **Activation**: Shell wrapper sources the environment's activate script
+4. **Activation**: Shell wrapper sources the environment's activate script and wraps `pip install` to automatically use deduplication
+
+5. **Package Deduplication**: When installing packages (via `pip install` in an activated environment or `pvm pip install`), identical packages across environments are stored once in a global cache and hardlinked to each environment's site-packages. This can save significant disk space when multiple environments share common packages like NumPy, PyTorch, etc.
+
+### Important Note on Hardlinks
+
+Package deduplication uses **hardlinks** to share files between the cache and environments. This means:
+
+- **Shared inodes**: Multiple environments point to the same file on disk
+- **Modification propagates**: If you manually modify a cached package file, the change affects ALL environments using that file
+- **Recommended practice**: Avoid manually editing installed package files. Use `pip install --upgrade` or create a new environment if you need different versions
 
 ## Supported Platforms
 

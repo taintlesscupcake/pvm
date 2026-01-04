@@ -46,6 +46,18 @@ pub enum PvmError {
 
     #[error("TOML parse error: {0}")]
     Toml(#[from] toml::de::Error),
+
+    #[error("Package not found in cache: {0}")]
+    PackageNotCached(String),
+
+    #[error("Failed to create link: {0}")]
+    LinkError(String),
+
+    #[error("pip command failed: {0}")]
+    PipError(String),
+
+    #[error("Cache corruption detected: {0}")]
+    CacheCorruption(String),
 }
 
 #[cfg(test)]

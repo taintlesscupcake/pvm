@@ -280,7 +280,7 @@ impl Downloader {
         let filename = python
             .download_url
             .split('/')
-            .last()
+            .next_back()
             .ok_or_else(|| PvmError::DownloadError("Invalid URL".to_string()))?;
 
         // URL decode the filename (e.g., %2B -> +)
@@ -427,6 +427,8 @@ mod tests {
             pythons_dir: None,
             envs_dir: None,
             cache_dir: None,
+            packages_dir: None,
+            dedup: Default::default(),
         };
         let downloader = Downloader::with_platform(config, Platform::MacOsAarch64).unwrap();
 
@@ -447,6 +449,8 @@ mod tests {
             pythons_dir: None,
             envs_dir: None,
             cache_dir: None,
+            packages_dir: None,
+            dedup: Default::default(),
         };
         let downloader = Downloader::with_platform(config, Platform::MacOsAarch64).unwrap();
 
@@ -467,6 +471,8 @@ mod tests {
             pythons_dir: None,
             envs_dir: None,
             cache_dir: None,
+            packages_dir: None,
+            dedup: Default::default(),
         };
         let downloader = Downloader::with_platform(config, Platform::MacOsAarch64).unwrap();
 
@@ -483,6 +489,8 @@ mod tests {
             pythons_dir: None,
             envs_dir: None,
             cache_dir: None,
+            packages_dir: None,
+            dedup: Default::default(),
         };
         let downloader = Downloader::with_platform(config, Platform::MacOsAarch64).unwrap();
 
@@ -500,6 +508,8 @@ mod tests {
             pythons_dir: None,
             envs_dir: None,
             cache_dir: None,
+            packages_dir: None,
+            dedup: Default::default(),
         };
         let downloader = Downloader::with_platform(config, Platform::MacOsAarch64).unwrap();
 
@@ -517,6 +527,8 @@ mod tests {
             pythons_dir: None,
             envs_dir: None,
             cache_dir: None,
+            packages_dir: None,
+            dedup: Default::default(),
         };
         let downloader = Downloader::with_platform(config, Platform::MacOsAarch64).unwrap();
 
