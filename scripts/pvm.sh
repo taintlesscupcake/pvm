@@ -92,13 +92,19 @@ if [ -n "$BASH_VERSION" ]; then
             *)
                 case "$prev" in
                     pvm)
-                        COMPREPLY=($(compgen -W "env python" -- "$cur"))
+                        COMPREPLY=($(compgen -W "env python pip cache update" -- "$cur"))
                         ;;
                     env)
                         COMPREPLY=($(compgen -W "create remove list activate deactivate" -- "$cur"))
                         ;;
                     python)
                         COMPREPLY=($(compgen -W "install list available remove" -- "$cur"))
+                        ;;
+                    pip)
+                        COMPREPLY=($(compgen -W "install sync" -- "$cur"))
+                        ;;
+                    cache)
+                        COMPREPLY=($(compgen -W "info list savings clean" -- "$cur"))
                         ;;
                 esac
                 ;;
@@ -112,10 +118,13 @@ fi
 
 if [ -n "$ZSH_VERSION" ]; then
     _pvm() {
-        local -a commands env_commands python_commands
+        local -a commands env_commands python_commands pip_commands cache_commands
         commands=(
             'env:Manage virtual environments'
             'python:Manage Python installations'
+            'pip:Package management with deduplication'
+            'cache:Manage package cache'
+            'update:Update Python version metadata'
         )
         env_commands=(
             'create:Create a new virtual environment'
@@ -130,6 +139,16 @@ if [ -n "$ZSH_VERSION" ]; then
             'available:Show available Python versions'
             'remove:Remove an installed Python version'
         )
+        pip_commands=(
+            'install:Install packages with deduplication'
+            'sync:Deduplicate existing packages'
+        )
+        cache_commands=(
+            'info:Show cache statistics'
+            'list:List cached packages'
+            'savings:Show disk space savings'
+            'clean:Remove orphaned packages'
+        )
 
         case "$words[2]" in
             env)
@@ -137,6 +156,12 @@ if [ -n "$ZSH_VERSION" ]; then
                 ;;
             python)
                 _describe 'python command' python_commands
+                ;;
+            pip)
+                _describe 'pip command' pip_commands
+                ;;
+            cache)
+                _describe 'cache command' cache_commands
                 ;;
             *)
                 _describe 'command' commands

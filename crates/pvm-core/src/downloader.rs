@@ -280,7 +280,7 @@ impl Downloader {
         let filename = python
             .download_url
             .split('/')
-            .last()
+            .next_back()
             .ok_or_else(|| PvmError::DownloadError("Invalid URL".to_string()))?;
 
         // URL decode the filename (e.g., %2B -> +)

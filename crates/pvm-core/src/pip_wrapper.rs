@@ -165,12 +165,26 @@ impl PipWrapper {
     ) -> Result<()> {
         let site_packages = self.site_packages()?;
 
-        // Remove the installed files
-        if package.location.exists() {
-            fs::remove_dir_all(&package.location)?;
+        // Remove all top-level items (ignore NotFound errors to avoid TOCTOU race condition)
+        for item_path in &package.top_level_items {
+            if item_path.is_dir() {
+                if let Err(e) = fs::remove_dir_all(item_path) {
+                    if e.kind() != std::io::ErrorKind::NotFound {
+                        return Err(e.into());
+                    }
+                }
+            } else if let Err(e) = fs::remove_file(item_path) {
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    return Err(e.into());
+                }
+            }
         }
-        if package.dist_info.exists() {
-            fs::remove_dir_all(&package.dist_info)?;
+
+        // Remove the dist-info directory
+        if let Err(e) = fs::remove_dir_all(&package.dist_info) {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                return Err(e.into());
+            }
         }
 
         // Create hardlinks from cache
@@ -233,10 +247,10 @@ impl PipWrapper {
         let mut version = None;
 
         for line in content.lines() {
-            if line.starts_with("Name: ") {
-                name = Some(line[6..].trim().to_string());
-            } else if line.starts_with("Version: ") {
-                version = Some(line[9..].trim().to_string());
+            if let Some(n) = line.strip_prefix("Name: ") {
+                name = Some(n.trim().to_string());
+            } else if let Some(v) = line.strip_prefix("Version: ") {
+                version = Some(v.trim().to_string());
             }
             if name.is_some() && version.is_some() {
                 break;
@@ -248,12 +262,21 @@ impl PipWrapper {
             _ => return Ok(None),
         };
 
-        // Find the package directory
-        let normalized_name = PackageId::normalize_name(&name);
-        let location = site_packages.join(&normalized_name);
+        // Get list of files and top-level items from RECORD
+        let (files, top_level_items) = self.get_package_files_and_items(dist_info, site_packages)?;
 
-        // Get list of files from RECORD
-        let files = self.get_package_files(dist_info, site_packages)?;
+        // Find the primary package directory (normalized name or first top-level dir)
+        let normalized_name = PackageId::normalize_name(&name);
+        let location = if site_packages.join(&normalized_name).exists() {
+            site_packages.join(&normalized_name)
+        } else {
+            // Use first top-level directory as primary location
+            top_level_items
+                .iter()
+                .find(|p| p.is_dir())
+                .cloned()
+                .unwrap_or_else(|| site_packages.join(&normalized_name))
+        };
 
         Ok(Some(InstalledPackage {
             name,
@@ -261,32 +284,71 @@ impl PipWrapper {
             location,
             dist_info: dist_info.to_path_buf(),
             files,
+            top_level_items,
         }))
     }
 
-    /// Get list of files belonging to a package from RECORD
-    fn get_package_files(
+    /// Get list of files and top-level items belonging to a package from RECORD
+    ///
+    /// Returns (all_files, top_level_items) where top_level_items are unique
+    /// directories and files directly in site-packages (excluding dist-info)
+    fn get_package_files_and_items(
         &self,
         dist_info: &Path,
         site_packages: &Path,
-    ) -> Result<Vec<PathBuf>> {
+    ) -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
         let record_path = dist_info.join("RECORD");
         let mut files = Vec::new();
+        let mut top_level_set = std::collections::HashSet::new();
 
         if record_path.exists() {
             let content = fs::read_to_string(&record_path)?;
             for line in content.lines() {
                 // RECORD format: path,hash,size
-                if let Some(path) = line.split(',').next() {
-                    let full_path = site_packages.join(path);
+                if let Some(path_str) = line.split(',').next() {
+                    if path_str.is_empty() {
+                        continue;
+                    }
+
+                    let full_path = site_packages.join(path_str);
                     if full_path.exists() {
                         files.push(full_path);
+                    }
+
+                    // Extract top-level item (first component of path)
+                    // Skip dist-info directory entries
+                    if !path_str.ends_with(".dist-info/RECORD")
+                        && !path_str.ends_with(".dist-info/METADATA")
+                        && !path_str.ends_with(".dist-info/WHEEL")
+                        && !path_str.ends_with(".dist-info/INSTALLER")
+                        && !path_str.ends_with(".dist-info/entry_points.txt")
+                        && !path_str.ends_with(".dist-info/licenses/LICENSE")
+                        && !path_str.contains(".dist-info/")
+                        && !path_str.ends_with(".dist-info")
+                    {
+                        // Get the first path component
+                        if let Some(first_component) = path_str.split('/').next() {
+                            // Skip empty strings, __pycache__ (shared), relative paths (./..), and hidden files
+                            if !first_component.is_empty()
+                                && first_component != "__pycache__"
+                                && !first_component.starts_with('.')
+                            {
+                                top_level_set.insert(first_component.to_string());
+                            }
+                        }
                     }
                 }
             }
         }
 
-        Ok(files)
+        // Convert top-level names to full paths, filter existing ones
+        let top_level_items: Vec<PathBuf> = top_level_set
+            .into_iter()
+            .map(|name| site_packages.join(&name))
+            .filter(|p| p.exists())
+            .collect();
+
+        Ok((files, top_level_items))
     }
 
     /// Sync all packages in the environment with the cache

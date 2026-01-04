@@ -57,10 +57,32 @@ impl LinkStrategy {
         a_meta.dev() == b_meta.dev()
     }
 
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    fn same_filesystem(a: &Path, b: &Path) -> bool {
+        // On Windows, compare drive letters/prefixes
+        use std::path::Component;
+
+        fn get_prefix(p: &Path) -> Option<String> {
+            if let Some(Component::Prefix(prefix)) = p.components().next() {
+                Some(prefix.as_os_str().to_string_lossy().to_lowercase())
+            } else {
+                None
+            }
+        }
+
+        let a_abs = fs::canonicalize(a).ok();
+        let b_check = if b.exists() { b.to_path_buf() } else { b.parent().unwrap_or(b).to_path_buf() };
+        let b_abs = fs::canonicalize(&b_check).ok();
+
+        match (a_abs.as_ref().and_then(|p| get_prefix(p)), b_abs.as_ref().and_then(|p| get_prefix(p))) {
+            (Some(a_pfx), Some(b_pfx)) => a_pfx == b_pfx,
+            _ => true, // If we can't determine, assume same filesystem
+        }
+    }
+
+    #[cfg(not(any(unix, windows)))]
     fn same_filesystem(_a: &Path, _b: &Path) -> bool {
-        // On non-Unix systems, assume same filesystem
-        // Windows would need different logic
+        // On other systems, assume same filesystem
         true
     }
 
@@ -121,9 +143,14 @@ impl LinkStrategy {
         self.copy_file(source, target)
     }
 
-    /// Copy a file
+    /// Copy a file with permission preservation
     fn copy_file(&self, source: &Path, target: &Path) -> Result<()> {
         fs::copy(source, target)?;
+        // Preserve permissions (especially executable bit on Unix)
+        #[cfg(unix)]
+        if let Ok(metadata) = fs::metadata(source) {
+            let _ = fs::set_permissions(target, metadata.permissions());
+        }
         Ok(())
     }
 
@@ -147,7 +174,26 @@ impl LinkStrategy {
             let src_path = entry.path();
             let dst_path = target.join(entry.file_name());
 
-            if src_path.is_dir() {
+            // Check symlink first (before is_file/is_dir which follow symlinks)
+            if src_path.is_symlink() {
+                // Recreate symlink at destination
+                let link_target = fs::read_link(&src_path)?;
+                #[cfg(unix)]
+                {
+                    std::os::unix::fs::symlink(&link_target, &dst_path)?;
+                }
+                #[cfg(windows)]
+                {
+                    // On Windows, determine if target is file or directory
+                    let target_resolved = src_path.parent().unwrap_or(&src_path).join(&link_target);
+                    if target_resolved.is_dir() {
+                        std::os::windows::fs::symlink_dir(&link_target, &dst_path)?;
+                    } else {
+                        std::os::windows::fs::symlink_file(&link_target, &dst_path)?;
+                    }
+                }
+                stats.linked_files += 1;
+            } else if src_path.is_dir() {
                 self.link_directory_recursive(&src_path, &dst_path, stats)?;
             } else if src_path.is_file() {
                 let file_size = entry.metadata()?.len();
@@ -170,7 +216,7 @@ impl LinkStrategy {
                     }
                 }
             }
-            // Skip symlinks and other special files
+            // Skip other special files (sockets, devices, etc.)
         }
 
         Ok(())

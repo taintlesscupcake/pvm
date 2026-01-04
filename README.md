@@ -152,6 +152,14 @@ deact                     # → pvm env deactivate
 
 5. **Package Deduplication**: When installing packages (via `pip install` in an activated environment or `pvm pip install`), identical packages across environments are stored once in a global cache and hardlinked to each environment's site-packages. This can save significant disk space when multiple environments share common packages like NumPy, PyTorch, etc.
 
+### Important Note on Hardlinks
+
+Package deduplication uses **hardlinks** to share files between the cache and environments. This means:
+
+- **Shared inodes**: Multiple environments point to the same file on disk
+- **Modification propagates**: If you manually modify a cached package file, the change affects ALL environments using that file
+- **Recommended practice**: Avoid manually editing installed package files. Use `pip install --upgrade` or create a new environment if you need different versions
+
 ## Supported Platforms
 
 - macOS (Apple Silicon / Intel)

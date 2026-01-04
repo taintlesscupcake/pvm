@@ -78,8 +78,16 @@ impl std::fmt::Display for PackageId {
 pub struct CachedPackage {
     /// Package identifier
     pub id: PackageId,
-    /// Path to the package in the cache store
+    /// Path to the package in the cache store (base directory containing all items)
     pub cache_path: PathBuf,
+    /// Original package directory name in site-packages (e.g., "black", "PIL", "charset_normalizer")
+    /// Deprecated: use pkg_items instead for multi-module packages
+    #[serde(default)]
+    pub pkg_dir_name: String,
+    /// All top-level items belonging to this package (directories and files)
+    /// e.g., ["black", "blackd", "blib2to3", "_black_version.py"]
+    #[serde(default)]
+    pub pkg_items: Vec<String>,
     /// Total size of the package in bytes
     pub size_bytes: u64,
     /// Number of files in the package
@@ -94,11 +102,21 @@ pub struct CachedPackage {
 
 impl CachedPackage {
     /// Create a new CachedPackage
-    pub fn new(id: PackageId, cache_path: PathBuf, size_bytes: u64, file_count: usize) -> Self {
+    pub fn new(
+        id: PackageId,
+        cache_path: PathBuf,
+        pkg_items: Vec<String>,
+        size_bytes: u64,
+        file_count: usize,
+    ) -> Self {
         let now = chrono::Utc::now();
+        // Keep pkg_dir_name for backward compatibility (use first item or empty)
+        let pkg_dir_name = pkg_items.first().cloned().unwrap_or_default();
         Self {
             id,
             cache_path,
+            pkg_dir_name,
+            pkg_items,
             size_bytes,
             file_count,
             cached_at: now,
@@ -136,12 +154,15 @@ pub struct InstalledPackage {
     pub name: String,
     /// Package version (from METADATA)
     pub version: String,
-    /// Path to the package directory in site-packages
+    /// Path to the package directory in site-packages (primary, for backward compatibility)
     pub location: PathBuf,
     /// Path to the .dist-info directory
     pub dist_info: PathBuf,
     /// List of all files belonging to this package
     pub files: Vec<PathBuf>,
+    /// All top-level items (directories and files) in site-packages
+    /// e.g., for black: ["black", "blackd", "blib2to3", "_black_version.py", "...mypyc.so"]
+    pub top_level_items: Vec<PathBuf>,
 }
 
 impl InstalledPackage {
@@ -204,7 +225,8 @@ mod tests {
     #[test]
     fn test_cached_package_reference_counting() {
         let id = PackageId::new("numpy", "1.26.0", "3.12", "aarch64-apple-darwin");
-        let mut cached = CachedPackage::new(id, PathBuf::from("/cache/numpy"), 1000, 10);
+        let mut cached =
+            CachedPackage::new(id, PathBuf::from("/cache/numpy"), vec!["numpy".to_string()], 1000, 10);
 
         assert_eq!(cached.reference_count, 1);
         assert!(!cached.is_orphan());

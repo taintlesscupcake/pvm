@@ -102,12 +102,19 @@ impl PackageCache {
         Ok(())
     }
 
-    /// Save metadata to disk
+    /// Save metadata to disk atomically (write to temp file, then rename)
     pub fn save_metadata(&self) -> Result<()> {
         self.ensure_dirs()?;
         let path = self.metadata_path();
+        let temp_path = path.with_extension("json.tmp");
         let content = serde_json::to_string_pretty(&self.metadata)?;
-        fs::write(&path, content)?;
+
+        // Write to temp file first
+        fs::write(&temp_path, &content)?;
+
+        // Atomically rename to final path
+        fs::rename(&temp_path, &path)?;
+
         Ok(())
     }
 
@@ -137,8 +144,10 @@ impl PackageCache {
     pub fn add_package(&mut self, package: &InstalledPackage, id: &PackageId) -> Result<PathBuf> {
         self.ensure_dirs()?;
 
-        let cache_path = self.get_cache_path(id);
         let hash = id.cache_hash();
+        let prefix = id.cache_prefix();
+        // Use hash directory as base (all items go inside this directory)
+        let cache_base = self.store_dir().join(&prefix).join(&hash);
 
         // If already cached, just increment reference
         if self.metadata.packages.contains_key(&hash) {
@@ -150,51 +159,71 @@ impl PackageCache {
         }
 
         // Create cache directory structure
-        if let Some(parent) = cache_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
+        fs::create_dir_all(&cache_base)?;
 
-        // Move the package directory to cache
-        if package.location.exists() {
-            // Use rename if same filesystem, otherwise copy and remove
-            if fs::rename(&package.location, &cache_path).is_err() {
-                // Cross-filesystem: copy then remove
-                copy_dir_all(&package.location, &cache_path)?;
-                fs::remove_dir_all(&package.location)?;
+        // Collect names of items we're caching
+        let mut pkg_items: Vec<String> = Vec::new();
+        let mut total_size: u64 = 0;
+
+        // Move all top-level items to cache (excluding __pycache__ which is shared)
+        for item_path in &package.top_level_items {
+            // Skip __pycache__ as it's a shared directory, not package-specific
+            if item_path.file_name().map(|n| n == "__pycache__").unwrap_or(false) {
+                continue;
+            }
+            if let Some(item_name) = item_path.file_name() {
+                let item_name_str = item_name.to_string_lossy().to_string();
+                let cache_item_path = cache_base.join(&item_name_str);
+
+                if item_path.exists() {
+                    // Use rename if same filesystem, otherwise copy and remove
+                    if fs::rename(item_path, &cache_item_path).is_err() {
+                        // Cross-filesystem: copy then remove
+                        if item_path.is_dir() {
+                            copy_dir_all(item_path, &cache_item_path)?;
+                        } else {
+                            fs::copy(item_path, &cache_item_path)?;
+                        }
+                        // Ignore remove errors (data is safely in cache)
+                        if item_path.is_dir() {
+                            let _ = fs::remove_dir_all(item_path);
+                        } else {
+                            let _ = fs::remove_file(item_path);
+                        }
+                    }
+
+                    pkg_items.push(item_name_str);
+                    total_size += dir_size(&cache_item_path)?;
+                }
             }
         }
 
-        // Also move the dist-info directory if separate
+        // Also move the dist-info directory
         let dist_info_name = package.dist_info.file_name().unwrap_or_default();
-        let cache_dist_info = cache_path.parent().unwrap().join(dist_info_name);
-        if package.dist_info.exists() && package.dist_info != package.location {
-            if fs::rename(&package.dist_info, &cache_dist_info).is_err() {
-                copy_dir_all(&package.dist_info, &cache_dist_info)?;
-                fs::remove_dir_all(&package.dist_info)?;
-            }
+        let cache_dist_info = cache_base.join(dist_info_name);
+        if package.dist_info.exists() && fs::rename(&package.dist_info, &cache_dist_info).is_err() {
+            copy_dir_all(&package.dist_info, &cache_dist_info)?;
+            // Ignore remove errors (data is safely in cache)
+            let _ = fs::remove_dir_all(&package.dist_info);
         }
-
-        // Calculate size
-        let size_bytes = dir_size(&cache_path)?
-            + if cache_dist_info.exists() {
-                dir_size(&cache_dist_info)?
-            } else {
-                0
-            };
+        if cache_dist_info.exists() {
+            total_size += dir_size(&cache_dist_info)?;
+        }
 
         // Create cached package entry
         let cached = CachedPackage::new(
             id.clone(),
-            cache_path.clone(),
-            size_bytes,
+            cache_base.clone(),
+            pkg_items,
+            total_size,
             package.file_count(),
         );
 
-        self.metadata.total_size_bytes += size_bytes;
+        self.metadata.total_size_bytes += total_size;
         self.metadata.packages.insert(hash, cached);
         self.save_metadata()?;
 
-        Ok(cache_path)
+        Ok(cache_base)
     }
 
     /// Link a cached package to a site-packages directory
@@ -215,13 +244,44 @@ impl PackageCache {
         // Determine best link strategy
         let strategy = LinkStrategy::detect(&cached.cache_path, site_packages);
 
-        // Link the main package directory
-        let target_path = site_packages.join(id.cache_dir_name());
-        let mut stats = strategy.link_directory(&cached.cache_path, &target_path)?;
+        let mut stats = LinkStats::default();
 
-        // Link the dist-info directory if it exists
+        // Determine items to link (use pkg_items if available, fallback to pkg_dir_name for legacy)
+        let items_to_link: Vec<String> = if !cached.pkg_items.is_empty() {
+            cached.pkg_items.clone()
+        } else if !cached.pkg_dir_name.is_empty() {
+            vec![cached.pkg_dir_name.clone()]
+        } else {
+            // Fallback: read items from cache directory
+            fs::read_dir(&cached.cache_path)?
+                .filter_map(|e| e.ok())
+                .filter_map(|e| e.file_name().to_str().map(|s| s.to_string()))
+                .filter(|name| !name.ends_with(".dist-info"))
+                .collect()
+        };
+
+        // Link each top-level item
+        for item_name in &items_to_link {
+            let cache_item_path = cached.cache_path.join(item_name);
+            let target_path = site_packages.join(item_name);
+
+            if cache_item_path.exists() {
+                if cache_item_path.is_dir() {
+                    let item_stats = strategy.link_directory(&cache_item_path, &target_path)?;
+                    stats.merge(&item_stats);
+                } else {
+                    // Single file (like _black_version.py or .so files)
+                    strategy.link_file(&cache_item_path, &target_path)?;
+                    let file_size = fs::metadata(&cache_item_path)?.len();
+                    stats.linked_files += 1;
+                    stats.linked_bytes += file_size;
+                }
+            }
+        }
+
+        // Link the dist-info directory
         let dist_info_name = format!("{}-{}.dist-info", id.name, id.version);
-        let cache_dist_info = cached.cache_path.parent().unwrap().join(&dist_info_name);
+        let cache_dist_info = cached.cache_path.join(&dist_info_name);
         if cache_dist_info.exists() {
             let target_dist_info = site_packages.join(&dist_info_name);
             let dist_stats = strategy.link_directory(&cache_dist_info, &target_dist_info)?;
@@ -403,7 +463,7 @@ mod tests {
         let site_packages = temp.path().join("site-packages");
         fs::create_dir_all(&site_packages).unwrap();
 
-        let pkg_dir = site_packages.join(format!("{}", name));
+        let pkg_dir = site_packages.join(name);
         fs::create_dir_all(&pkg_dir).unwrap();
         fs::write(pkg_dir.join("__init__.py"), "# test package").unwrap();
         fs::write(pkg_dir.join("module.py"), "def hello(): pass").unwrap();
@@ -425,6 +485,7 @@ mod tests {
                 pkg_dir.join("__init__.py"),
                 pkg_dir.join("module.py"),
             ],
+            top_level_items: vec![pkg_dir.clone()],
         }
     }
 
@@ -475,7 +536,10 @@ mod tests {
             .unwrap();
 
         assert!(stats.total_files() > 0);
-        assert!(new_site_packages.join("requests-2.31.0").exists());
+        // Package directory is linked with original name
+        assert!(new_site_packages.join("requests").exists());
+        // dist-info is also linked
+        assert!(new_site_packages.join("requests-2.31.0.dist-info").exists());
     }
 
     #[test]
