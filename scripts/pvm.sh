@@ -8,6 +8,16 @@ export PVM_HOME="${PVM_HOME:-$HOME/.pvm}"
 # PVM binary path
 PVM_BIN="$PVM_HOME/bin/pvm"
 
+# Load shell configuration (auto-generated from config.toml)
+_PVM_SHELL_CONF="$PVM_HOME/shell.conf"
+if [ -f "$_PVM_SHELL_CONF" ]; then
+    source "$_PVM_SHELL_CONF"
+fi
+
+# Default values for backward compatibility (if shell.conf doesn't exist)
+: "${PVM_LEGACY_COMMANDS:=true}"
+: "${PVM_PIP_WRAPPER:=true}"
+
 # Main pvm function
 pvm() {
     case "$1 $2" in
@@ -18,8 +28,10 @@ pvm() {
             if [ $? -eq 0 ] && [ -f "$script" ]; then
                 source "$script"
 
-                # Set up pip wrapper for deduplication
-                _pvm_setup_pip_wrapper
+                # Set up pip wrapper for deduplication (if enabled)
+                if [ "$PVM_PIP_WRAPPER" = "true" ]; then
+                    _pvm_setup_pip_wrapper
+                fi
             else
                 echo "$script" >&2
                 return 1
@@ -40,34 +52,37 @@ pvm() {
 }
 
 # Legacy alias support (for users migrating from virtualenv.sh)
-mkenv() {
-    if [ $# -eq 2 ]; then
-        # mkenv <version> <name> -> pvm env create <name> <version>
-        pvm env create "$2" "$1"
-    else
-        pvm env create "$@"
-    fi
-}
+# Only define if enabled in config
+if [ "$PVM_LEGACY_COMMANDS" = "true" ]; then
+    mkenv() {
+        if [ $# -eq 2 ]; then
+            # mkenv <version> <name> -> pvm env create <name> <version>
+            pvm env create "$2" "$1"
+        else
+            pvm env create "$@"
+        fi
+    }
 
-rmenv() {
-    pvm env remove "$@"
-}
+    rmenv() {
+        pvm env remove "$@"
+    }
 
-lsenv() {
-    pvm env list "$@"
-}
+    lsenv() {
+        pvm env list "$@"
+    }
 
-act() {
-    pvm env activate "$@"
-}
+    act() {
+        pvm env activate "$@"
+    }
 
-activate() {
-    pvm env activate "$@"
-}
+    activate() {
+        pvm env activate "$@"
+    }
 
-deact() {
-    pvm env deactivate
-}
+    deact() {
+        pvm env deactivate
+    }
+fi
 
 # Shell completion
 if [ -n "$BASH_VERSION" ]; then
@@ -83,16 +98,22 @@ if [ -n "$BASH_VERSION" ]; then
             "pvm python")
                 COMPREPLY=($(compgen -W "install list available remove" -- "$cur"))
                 ;;
+            "pvm config")
+                COMPREPLY=($(compgen -W "show get set sync reset" -- "$cur"))
+                ;;
             "env create"|"env activate"|"env act"|"env remove"|"env rm")
                 # Complete with environment names
                 if [ -d "$PVM_HOME/envs" ]; then
                     COMPREPLY=($(compgen -W "$(ls "$PVM_HOME/envs" 2>/dev/null)" -- "$cur"))
                 fi
                 ;;
+            "config get"|"config set")
+                COMPREPLY=($(compgen -W "shell.legacy_commands shell.pip_wrapper general.auto_update_days general.colored_output dedup.enabled dedup.link_strategy dedup.auto_gc dedup.gc_retention_days" -- "$cur"))
+                ;;
             *)
                 case "$prev" in
                     pvm)
-                        COMPREPLY=($(compgen -W "env python pip cache update" -- "$cur"))
+                        COMPREPLY=($(compgen -W "env python pip cache config update" -- "$cur"))
                         ;;
                     env)
                         COMPREPLY=($(compgen -W "create remove list activate deactivate" -- "$cur"))
@@ -106,24 +127,31 @@ if [ -n "$BASH_VERSION" ]; then
                     cache)
                         COMPREPLY=($(compgen -W "info list savings clean" -- "$cur"))
                         ;;
+                    config)
+                        COMPREPLY=($(compgen -W "show get set sync reset" -- "$cur"))
+                        ;;
                 esac
                 ;;
         esac
     }
     complete -F _pvm_completions pvm
-    complete -F _pvm_completions act
-    complete -F _pvm_completions activate
-    complete -F _pvm_completions rmenv
+    # Register completions for legacy commands only if enabled
+    if [ "$PVM_LEGACY_COMMANDS" = "true" ]; then
+        complete -F _pvm_completions act
+        complete -F _pvm_completions activate
+        complete -F _pvm_completions rmenv
+    fi
 fi
 
 if [ -n "$ZSH_VERSION" ]; then
     _pvm() {
-        local -a commands env_commands python_commands pip_commands cache_commands
+        local -a commands env_commands python_commands pip_commands cache_commands config_commands
         commands=(
             'env:Manage virtual environments'
             'python:Manage Python installations'
             'pip:Package management with deduplication'
             'cache:Manage package cache'
+            'config:Manage PVM configuration'
             'update:Update Python version metadata'
         )
         env_commands=(
@@ -149,6 +177,13 @@ if [ -n "$ZSH_VERSION" ]; then
             'savings:Show disk space savings'
             'clean:Remove orphaned packages'
         )
+        config_commands=(
+            'show:Show current configuration'
+            'get:Get a config value'
+            'set:Set a config value'
+            'sync:Regenerate shell.conf'
+            'reset:Reset to defaults'
+        )
 
         case "$words[2]" in
             env)
@@ -162,6 +197,9 @@ if [ -n "$ZSH_VERSION" ]; then
                 ;;
             cache)
                 _describe 'cache command' cache_commands
+                ;;
+            config)
+                _describe 'config command' config_commands
                 ;;
             *)
                 _describe 'command' commands

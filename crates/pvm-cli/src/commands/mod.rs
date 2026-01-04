@@ -3,6 +3,7 @@
 use clap::Subcommand;
 
 pub mod cache;
+pub mod config;
 pub mod env;
 pub mod pip;
 pub mod python;
@@ -30,6 +31,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: pip::PipCommands,
     },
+    /// Manage PVM configuration
+    Config {
+        #[command(subcommand)]
+        command: config::ConfigCommands,
+    },
     /// Update Python version metadata
     Update,
 }
@@ -40,6 +46,7 @@ pub async fn execute(command: Commands) -> anyhow::Result<()> {
         Commands::Python { command } => python::execute(command).await,
         Commands::Cache { command } => cache::execute(command).await,
         Commands::Pip { command } => pip::execute(command).await,
+        Commands::Config { command } => config::execute(command).await,
         Commands::Update => update::execute().await,
     }
 }

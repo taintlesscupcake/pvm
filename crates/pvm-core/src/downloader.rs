@@ -429,6 +429,8 @@ mod tests {
             cache_dir: None,
             packages_dir: None,
             dedup: Default::default(),
+            shell: Default::default(),
+            general: Default::default(),
         };
         let downloader = Downloader::with_platform(config, Platform::MacOsAarch64).unwrap();
 
@@ -451,6 +453,8 @@ mod tests {
             cache_dir: None,
             packages_dir: None,
             dedup: Default::default(),
+            shell: Default::default(),
+            general: Default::default(),
         };
         let downloader = Downloader::with_platform(config, Platform::MacOsAarch64).unwrap();
 
@@ -473,6 +477,8 @@ mod tests {
             cache_dir: None,
             packages_dir: None,
             dedup: Default::default(),
+            shell: Default::default(),
+            general: Default::default(),
         };
         let downloader = Downloader::with_platform(config, Platform::MacOsAarch64).unwrap();
 
@@ -491,6 +497,8 @@ mod tests {
             cache_dir: None,
             packages_dir: None,
             dedup: Default::default(),
+            shell: Default::default(),
+            general: Default::default(),
         };
         let downloader = Downloader::with_platform(config, Platform::MacOsAarch64).unwrap();
 
@@ -510,6 +518,8 @@ mod tests {
             cache_dir: None,
             packages_dir: None,
             dedup: Default::default(),
+            shell: Default::default(),
+            general: Default::default(),
         };
         let downloader = Downloader::with_platform(config, Platform::MacOsAarch64).unwrap();
 
@@ -529,6 +539,8 @@ mod tests {
             cache_dir: None,
             packages_dir: None,
             dedup: Default::default(),
+            shell: Default::default(),
+            general: Default::default(),
         };
         let downloader = Downloader::with_platform(config, Platform::MacOsAarch64).unwrap();
 

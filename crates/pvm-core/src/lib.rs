@@ -20,7 +20,7 @@ pub mod pip_wrapper;
 pub use error::{PvmError, Result};
 pub use version::PythonVersion;
 pub use platform::Platform;
-pub use config::{Config, DedupConfig};
+pub use config::{Config, DedupConfig, GeneralConfig, ShellConfig};
 pub use downloader::Downloader;
 pub use installer::Installer;
 pub use venv::VenvManager;

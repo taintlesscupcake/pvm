@@ -178,6 +178,8 @@ mod tests {
             cache_dir: None,
             packages_dir: None,
             dedup: Default::default(),
+            shell: Default::default(),
+            general: Default::default(),
         };
         (config, temp_dir)
     }
