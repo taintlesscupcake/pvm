@@ -395,9 +395,15 @@ fi
 
 # pip wrapper setup - intercepts pip install to use pvm deduplication
 _pvm_setup_pip_wrapper() {
-    # Save original deactivate function
+    # Save original deactivate function (handle both bash and zsh)
     if type deactivate &>/dev/null; then
-        eval "_pvm_original_deactivate() { $(declare -f deactivate | tail -n +2); }"
+        if [ -n "$ZSH_VERSION" ]; then
+            # zsh: direct function copy via functions array (avoids eval issues)
+            functions[_pvm_original_deactivate]=${functions[deactivate]}
+        else
+            # bash: use declare -f with eval
+            eval "_pvm_original_deactivate() { $(declare -f deactivate | tail -n +2); }"
+        fi
     fi
 
     # Define pip wrapper function
