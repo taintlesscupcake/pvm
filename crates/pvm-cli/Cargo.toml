@@ -15,10 +15,12 @@ pvm-core = { path = "../pvm-core" }
 pvm-shell = { path = "../pvm-shell" }
 tokio = { workspace = true }
 clap = { workspace = true }
+clap_complete = { workspace = true }
 dialoguer = { workspace = true }
 console = { workspace = true }
 indicatif = { workspace = true }
 anyhow = { workspace = true }
+serde_json = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
