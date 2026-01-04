@@ -1,5 +1,7 @@
 # PVM - Python Version Manager
 
+🇺🇸 [English](README.md) | 🇰🇷 [한국어](README_ko.md)
+
 A lightweight, standalone Python version and virtual environment manager written in Rust. Think Anaconda, but fast and simple.
 
 ## Why PVM?
