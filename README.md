@@ -7,6 +7,7 @@ A lightweight, standalone Python version and virtual environment manager written
 | Feature | PVM | uv/mise | Anaconda |
 |---------|-----|---------|----------|
 | Shared environments | ✅ | ❌ (project-local) | ✅ |
+| Package deduplication | ✅ (hardlinks) | ✅ | ❌ |
 | No external dependencies | ✅ | ❌ | ❌ |
 | Single binary | ✅ (2.6MB) | ✅ | ❌ |
 | Fast | ✅ | ✅ | ❌ |
@@ -40,8 +41,11 @@ pvm env create myproject 3.12
 # Activate it
 pvm env activate myproject
 
-# Work in your environment...
-pip install requests numpy
+# Install packages (with deduplication across environments)
+pvm pip install requests numpy
+
+# Or use regular pip (no deduplication)
+pip install pandas
 
 # Deactivate when done
 pvm env deactivate
@@ -69,6 +73,27 @@ pvm env deactivate              # Deactivate current environment
 pvm env remove <name>           # Remove environment
 ```
 
+### Package Management (with Deduplication)
+
+```bash
+# When environment is activated (auto-detects from VIRTUAL_ENV)
+pvm pip install <packages>           # Install packages with deduplication
+pvm pip sync                         # Deduplicate existing packages
+
+# Or specify environment explicitly
+pvm pip install -e <env> <packages>  # Install to specific environment
+pvm pip sync -e <env>                # Sync specific environment
+```
+
+### Cache Management
+
+```bash
+pvm cache info                  # Show cache statistics
+pvm cache list                  # List cached packages
+pvm cache savings               # Show disk space savings
+pvm cache clean                 # Remove orphaned packages
+```
+
 ### Aliases
 
 For users migrating from other tools, legacy aliases are available:
@@ -94,6 +119,9 @@ deact                     # → pvm env deactivate
 ├── envs/                   # Virtual environments
 │   ├── myproject/
 │   └── datascience/
+├── packages/               # Deduplicated package cache
+│   ├── metadata.json       # Cache metadata
+│   └── store/              # Content-addressable storage
 └── cache/                  # Download cache
 ```
 
@@ -106,6 +134,8 @@ deact                     # → pvm env deactivate
 3. **Environment Creation**: Uses Python's built-in `venv` module to create isolated environments
 
 4. **Activation**: Shell wrapper sources the environment's activate script
+
+5. **Package Deduplication**: When installing packages via `pvm pip install`, identical packages across environments are stored once in a global cache and hardlinked to each environment's site-packages. This can save significant disk space when multiple environments share common packages like NumPy, PyTorch, etc.
 
 ## Supported Platforms
 

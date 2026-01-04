@@ -176,6 +176,8 @@ mod tests {
             pythons_dir: None,
             envs_dir: None,
             cache_dir: None,
+            packages_dir: None,
+            dedup: Default::default(),
         };
         (config, temp_dir)
     }
