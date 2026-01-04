@@ -1,0 +1,20 @@
+# Build artifacts
+/target/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# PVM runtime directories
+envs/
+cache/
+
+# Claude memory bank system
+.claude/
+CLAUDE.md
+CLAUDE-*.md

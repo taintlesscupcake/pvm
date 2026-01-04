@@ -1,0 +1,15 @@
+[package]
+name = "pvm-shell"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Shell integration for PVM - Python Version Manager"
+
+[dependencies]
+pvm-core = { path = "../pvm-core" }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
