@@ -58,6 +58,12 @@ pub enum PvmError {
 
     #[error("Cache corruption detected: {0}")]
     CacheCorruption(String),
+
+    #[error("Migration failed: {0}")]
+    MigrationError(String),
+
+    #[error("Source environment not found: {0}")]
+    SourceEnvNotFound(String),
 }
 
 #[cfg(test)]

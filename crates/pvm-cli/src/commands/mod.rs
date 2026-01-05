@@ -6,6 +6,7 @@ pub mod cache;
 pub mod completion;
 pub mod config;
 pub mod env;
+pub mod migrate;
 pub mod pip;
 pub mod python;
 pub mod update;
@@ -39,6 +40,11 @@ pub enum Commands {
     },
     /// Update Python version metadata
     Update,
+    /// Migrate virtual environments from external sources
+    Migrate {
+        #[command(subcommand)]
+        command: migrate::MigrateCommands,
+    },
     /// Generate shell completion scripts
     Completion {
         #[command(subcommand)]
@@ -69,6 +75,7 @@ pub async fn execute(command: Commands) -> anyhow::Result<()> {
         Commands::Pip { command } => pip::execute(command).await,
         Commands::Config { command } => config::execute(command).await,
         Commands::Update => update::execute().await,
+        Commands::Migrate { command } => migrate::execute(command).await,
         Commands::Completion { command } => completion::execute(command),
         // Hidden completion helpers
         Commands::CompleteEnvs => completion::complete_envs(),

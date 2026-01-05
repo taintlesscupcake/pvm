@@ -10,6 +10,7 @@ pub mod config;
 pub mod downloader;
 pub mod installer;
 pub mod venv;
+pub mod migrate;
 
 // Package deduplication modules
 pub mod cache;
@@ -30,3 +31,6 @@ pub use cache::{CacheStats, GCStats, PackageCache};
 pub use link::{LinkStats, LinkStrategy};
 pub use package::{CachedPackage, InstalledPackage, PackageId};
 pub use pip_wrapper::{InstallResult, PipWrapper};
+
+// Migration exports
+pub use migrate::{MigrationResult, Migrator, SourceEnvInfo};

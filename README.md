@@ -160,6 +160,39 @@ act <name>                # → pvm env activate <name>
 deact                     # → pvm env deactivate
 ```
 
+### Migration from External Virtualenvs
+
+PVM can import existing virtual environments from external sources (e.g., virtualenvwrapper, mise-managed virtualenvs):
+
+```bash
+# List environments available for migration
+pvm migrate list
+pvm migrate list --source /path/to/envs
+
+# Migrate a single environment
+pvm migrate env myenv
+pvm migrate env myenv --rename new-name    # Rename during migration
+
+# Migrate all environments at once
+pvm migrate env --all
+
+# Auto-delete source after migration
+pvm migrate env myenv --delete-source
+
+# Non-interactive mode
+pvm migrate env myenv -y --delete-source
+```
+
+**What happens during migration:**
+1. Detects Python version from source environment's `pyvenv.cfg`
+2. Auto-installs matching Python version in pvm if not present
+3. Copies environment to `~/.pvm/envs/`
+4. Fixes Python symlinks to point to pvm-managed Python
+5. Runs `pvm pip sync` to deduplicate packages into cache
+6. Optionally deletes source environment (prompts by default)
+
+**Default source:** `~/.virtualenvs/envs` (customizable with `--source`)
+
 ## Directory Structure
 
 ```

@@ -160,6 +160,39 @@ act <name>                # → pvm env activate <name>
 deact                     # → pvm env deactivate
 ```
 
+### 외부 가상환경 마이그레이션
+
+PVM은 외부 소스(예: virtualenvwrapper, mise 관리 가상환경)에서 기존 가상환경을 가져올 수 있습니다:
+
+```bash
+# 마이그레이션 가능한 환경 목록 표시
+pvm migrate list
+pvm migrate list --source /path/to/envs
+
+# 단일 환경 마이그레이션
+pvm migrate env myenv
+pvm migrate env myenv --rename new-name    # 마이그레이션 중 이름 변경
+
+# 모든 환경 일괄 마이그레이션
+pvm migrate env --all
+
+# 마이그레이션 후 소스 자동 삭제
+pvm migrate env myenv --delete-source
+
+# 비대화형 모드
+pvm migrate env myenv -y --delete-source
+```
+
+**마이그레이션 과정:**
+1. 소스 환경의 `pyvenv.cfg`에서 Python 버전 감지
+2. 필요시 해당 Python 버전을 pvm에 자동 설치
+3. 환경을 `~/.pvm/envs/`로 복사
+4. Python 심볼릭 링크를 pvm 관리 Python으로 수정
+5. `pvm pip sync` 실행하여 패키지를 캐시에 중복 제거
+6. 소스 환경 삭제 여부 확인 (기본값: 유지)
+
+**기본 소스:** `~/.virtualenvs/envs` (`--source`로 변경 가능)
+
 ## 디렉토리 구조
 
 ```

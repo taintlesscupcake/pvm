@@ -54,7 +54,12 @@ pvm() {
 # Legacy alias support (for users migrating from virtualenv.sh)
 # Only define if enabled in config
 if [ "$PVM_LEGACY_COMMANDS" = "true" ]; then
-    mkenv() {
+    # Unset any existing aliases to avoid conflicts (especially in zsh)
+    unalias mkenv rmenv lsenv act activate deact 2>/dev/null
+
+    # Use 'function name { }' syntax for zsh compatibility
+    # (zsh can't parse 'name() { }' if 'name' is an existing alias at parse time)
+    function mkenv {
         if [ $# -eq 2 ]; then
             # mkenv <version> <name> -> pvm env create <name> <version>
             pvm env create "$2" "$1"
@@ -63,23 +68,23 @@ if [ "$PVM_LEGACY_COMMANDS" = "true" ]; then
         fi
     }
 
-    rmenv() {
+    function rmenv {
         pvm env remove "$@"
     }
 
-    lsenv() {
+    function lsenv {
         pvm env list "$@"
     }
 
-    act() {
+    function act {
         pvm env activate "$@"
     }
 
-    activate() {
+    function activate {
         pvm env activate "$@"
     }
 
-    deact() {
+    function deact {
         pvm env deactivate
     }
 fi
