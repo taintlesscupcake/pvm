@@ -20,7 +20,7 @@ A lightweight, standalone Python version and virtual environment manager written
 
 ```bash
 # Clone and build
-git clone https://github.com/sungjin/pvm.git
+git clone https://github.com/taintlesscupcake/pvm.git
 cd pvm
 cargo build --release
 

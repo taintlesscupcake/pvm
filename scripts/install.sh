@@ -82,7 +82,7 @@ if [ -f "$SOURCE_BIN" ]; then
 else
     # Download from releases
     echo "Downloading PVM..."
-    LATEST_URL="https://github.com/sungjin/pvm/releases/latest/download/pvm-${FULL_PLATFORM}"
+    LATEST_URL="https://github.com/taintlesscupcake/pvm/releases/latest/download/pvm-${FULL_PLATFORM}"
     curl -fsSL "$LATEST_URL" -o "$PVM_BIN/pvm" || {
         echo -e "${RED}Failed to download PVM. Please build from source.${NC}"
         exit 1

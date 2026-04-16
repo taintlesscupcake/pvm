@@ -20,7 +20,7 @@ Rust로 작성된 경량 독립형 Python 버전 및 가상 환경 관리자. An
 
 ```bash
 # 클론 및 빌드
-git clone https://github.com/sungjin/pvm.git
+git clone https://github.com/taintlesscupcake/pvm.git
 cd pvm
 cargo build --release
 
