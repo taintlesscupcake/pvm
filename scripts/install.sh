@@ -37,16 +37,17 @@ for arg in "$@"; do
     esac
 done
 
-# When piped from curl ("curl ... | bash"), stdin is the script itself,
-# so read/prompt calls would consume install.sh instead of user input.
-# Probe by actually opening /dev/tty — it may exist but not be openable
-# in sandboxes, in which case [ -r /dev/tty ] lies.
-if [ ! -t 0 ]; then
-    if { exec 3</dev/tty; } 2>/dev/null; then
-        exec <&3 3<&-
-    else
-        INTERACTIVE=false
-    fi
+# When piped from curl ("curl ... | bash"), stdin is the script itself, so
+# prompts have to read from /dev/tty instead. We open it on fd 3 and route
+# each `read` through that fd; globally swapping fd 0 would make bash start
+# reading the *rest of the script* from the tty (no output, looks hung).
+TTY_FD=""
+if [ -t 0 ]; then
+    TTY_FD=0
+elif { exec 3</dev/tty; } 2>/dev/null; then
+    TTY_FD=3
+else
+    INTERACTIVE=false
 fi
 
 echo -e "${CYAN}Installing PVM (Python Version Manager)...${NC}"
@@ -174,7 +175,7 @@ if [ "$INTERACTIVE" = "true" ]; then
         else
             prompt="$prompt [y/N]: "
         fi
-        read -r -p "$prompt" result
+        read -r -u "$TTY_FD" -p "$prompt" result
         result="${result:-$default}"
         case "$result" in
             [Yy]*) echo "true" ;;
@@ -197,7 +198,7 @@ if [ "$INTERACTIVE" = "true" ]; then
 
     echo "Auto-update Python metadata?"
     echo -e "${DIM}  Checks for new Python versions periodically${NC}"
-    read -r -p "Update interval in days (0 to disable) [7]: " AUTO_UPDATE_DAYS
+    read -r -u "$TTY_FD" -p "Update interval in days (0 to disable) [7]: " AUTO_UPDATE_DAYS
     AUTO_UPDATE_DAYS="${AUTO_UPDATE_DAYS:-7}"
     echo ""
 
