@@ -9,12 +9,11 @@ GREEN='\033[0;32m'
 CYAN='\033[0;36m'
 YELLOW='\033[0;33m'
 DIM='\033[0;90m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 PVM_HOME="${PVM_HOME:-$HOME/.pvm}"
-PVM_BIN="$PVM_HOME/bin"
+PVM_BIN_DIR="${PVM_BIN_DIR:-$HOME/.local/bin}"
 
-# Parse command line arguments
 INTERACTIVE=true
 for arg in "$@"; do
     case "$arg" in
@@ -27,15 +26,32 @@ for arg in "$@"; do
             echo "Options:"
             echo "  --yes, -y    Skip interactive prompts, use defaults"
             echo "  --help, -h   Show this help message"
+            echo ""
+            echo "Environment variables:"
+            echo "  PVM_HOME         State directory (default: \$HOME/.pvm)"
+            echo "  PVM_BIN_DIR      Binary install directory (default: \$HOME/.local/bin)"
+            echo "  PVM_VERSION      Release tag to install (default: latest)"
+            echo "  PVM_RELEASE_URL  Override release asset base URL"
             exit 0
             ;;
     esac
 done
 
+# When piped from curl ("curl ... | bash"), stdin is the script itself,
+# so read/prompt calls would consume install.sh instead of user input.
+# Probe by actually opening /dev/tty — it may exist but not be openable
+# in sandboxes, in which case [ -r /dev/tty ] lies.
+if [ ! -t 0 ]; then
+    if { exec 3</dev/tty; } 2>/dev/null; then
+        exec <&3 3<&-
+    else
+        INTERACTIVE=false
+    fi
+fi
+
 echo -e "${CYAN}Installing PVM (Python Version Manager)...${NC}"
 
-# Create directories
-mkdir -p "$PVM_BIN"
+mkdir -p "$PVM_BIN_DIR"
 mkdir -p "$PVM_HOME/pythons"
 mkdir -p "$PVM_HOME/envs"
 mkdir -p "$PVM_HOME/cache"
@@ -45,12 +61,8 @@ OS="$(uname -s)"
 ARCH="$(uname -m)"
 
 case "$OS" in
-    Darwin)
-        PLATFORM="apple-darwin"
-        ;;
-    Linux)
-        PLATFORM="unknown-linux-gnu"
-        ;;
+    Darwin) PLATFORM="apple-darwin" ;;
+    Linux)  PLATFORM="unknown-linux-gnu" ;;
     *)
         echo -e "${RED}Unsupported OS: $OS${NC}"
         exit 1
@@ -58,12 +70,8 @@ case "$OS" in
 esac
 
 case "$ARCH" in
-    x86_64)
-        FULL_PLATFORM="${ARCH}-${PLATFORM}"
-        ;;
-    arm64|aarch64)
-        FULL_PLATFORM="aarch64-${PLATFORM}"
-        ;;
+    x86_64)       FULL_PLATFORM="${ARCH}-${PLATFORM}" ;;
+    arm64|aarch64) FULL_PLATFORM="aarch64-${PLATFORM}" ;;
     *)
         echo -e "${RED}Unsupported architecture: $ARCH${NC}"
         exit 1
@@ -71,16 +79,20 @@ case "$ARCH" in
 esac
 
 echo "Platform: $FULL_PLATFORM"
+echo "Binary:   $PVM_BIN_DIR/pvm"
+echo "State:    $PVM_HOME"
 
 # Check if running from source directory (development install)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null)" || SCRIPT_DIR=""
 SOURCE_BIN="$SCRIPT_DIR/../target/release/pvm"
+SOURCE_SHELL_SCRIPT="$SCRIPT_DIR/pvm.sh"
 
-BUNDLED_SHELL_SCRIPT=""
-
-if [ -f "$SOURCE_BIN" ]; then
+if [ -n "$SCRIPT_DIR" ] && [ -f "$SOURCE_BIN" ]; then
     echo "Installing from local build..."
-    cp "$SOURCE_BIN" "$PVM_BIN/pvm"
+    install -m 0755 "$SOURCE_BIN" "$PVM_BIN_DIR/pvm"
+    if [ -f "$SOURCE_SHELL_SCRIPT" ]; then
+        install -m 0644 "$SOURCE_SHELL_SCRIPT" "$PVM_HOME/pvm.sh"
+    fi
 else
     # Download prebuilt release archive
     echo "Downloading PVM..."
@@ -88,9 +100,17 @@ else
     trap 'rm -rf "$TMPDIR"' EXIT
 
     ARCHIVE="pvm-${FULL_PLATFORM}.tar.gz"
-    RELEASE_BASE="${PVM_RELEASE_URL:-https://github.com/taintlesscupcake/pvm/releases/latest/download}"
+    if [ -n "${PVM_RELEASE_URL:-}" ]; then
+        RELEASE_BASE="$PVM_RELEASE_URL"
+    elif [ -n "${PVM_VERSION:-}" ]; then
+        RELEASE_BASE="https://github.com/taintlesscupcake/pvm/releases/download/${PVM_VERSION}"
+    else
+        RELEASE_BASE="https://github.com/taintlesscupcake/pvm/releases/latest/download"
+    fi
     ARCHIVE_URL="${RELEASE_BASE}/${ARCHIVE}"
     CHECKSUM_URL="${ARCHIVE_URL}.sha256"
+
+    echo "Source: ${ARCHIVE_URL}"
 
     curl -fsSL "$ARCHIVE_URL" -o "$TMPDIR/$ARCHIVE" || {
         echo -e "${RED}Failed to download PVM from ${ARCHIVE_URL}${NC}"
@@ -114,25 +134,26 @@ else
         exit 1
     fi
 
-    cp "$EXTRACTED_DIR/pvm" "$PVM_BIN/pvm"
+    install -m 0755 "$EXTRACTED_DIR/pvm" "$PVM_BIN_DIR/pvm"
     if [ -f "$EXTRACTED_DIR/pvm.sh" ]; then
-        cp "$EXTRACTED_DIR/pvm.sh" "$PVM_HOME/pvm.sh"
-        BUNDLED_SHELL_SCRIPT=1
+        install -m 0644 "$EXTRACTED_DIR/pvm.sh" "$PVM_HOME/pvm.sh"
     fi
 fi
 
-chmod +x "$PVM_BIN/pvm"
+# Fallback pvm.sh from the repo if not written above (rare)
+if [ ! -f "$PVM_HOME/pvm.sh" ]; then
+    curl -fsSL "https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/pvm.sh" \
+        -o "$PVM_HOME/pvm.sh" 2>/dev/null \
+        || echo -e "${YELLOW}Warning: could not fetch pvm.sh fallback${NC}"
+fi
 
-# Install shell wrapper (skip if already bundled from the release archive)
-if [ -z "$BUNDLED_SHELL_SCRIPT" ]; then
-    SHELL_SCRIPT="$SCRIPT_DIR/pvm.sh"
-    if [ -f "$SHELL_SCRIPT" ]; then
-        cp "$SHELL_SCRIPT" "$PVM_HOME/pvm.sh"
-    else
-        curl -fsSL "https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/pvm.sh" -o "$PVM_HOME/pvm.sh" || {
-            echo -e "${RED}Warning: Could not download shell wrapper${NC}"
-        }
-    fi
+# Migrate from old binary location (~/.pvm/bin/pvm). The state dir stays put,
+# we only remove the stale executable so shells don't accidentally run it.
+LEGACY_BIN="$PVM_HOME/bin/pvm"
+if [ -f "$LEGACY_BIN" ] && [ "$LEGACY_BIN" != "$PVM_BIN_DIR/pvm" ]; then
+    echo -e "${DIM}Removing legacy binary at $LEGACY_BIN${NC}"
+    rm -f "$LEGACY_BIN"
+    rmdir "$PVM_HOME/bin" 2>/dev/null || true
 fi
 
 # Configuration setup
@@ -140,57 +161,46 @@ echo ""
 echo -e "${CYAN}=== Configuration Setup ===${NC}"
 echo ""
 
-# Default values
 LEGACY_COMMANDS="true"
 PIP_WRAPPER="true"
 AUTO_UPDATE_DAYS="7"
 COLORED_OUTPUT="true"
 
 if [ "$INTERACTIVE" = "true" ]; then
-    # Helper function to read yes/no with default
     read_yn() {
-        local prompt="$1"
-        local default="$2"
-        local result
-
+        local prompt="$1" default="$2" result
         if [ "$default" = "Y" ]; then
             prompt="$prompt [Y/n]: "
         else
             prompt="$prompt [y/N]: "
         fi
-
         read -r -p "$prompt" result
         result="${result:-$default}"
-
         case "$result" in
             [Yy]*) echo "true" ;;
-            *) echo "false" ;;
+            *)     echo "false" ;;
         esac
     }
 
     echo -e "${DIM}PVM can provide shell aliases for common operations.${NC}"
     echo ""
 
-    # Legacy commands
     echo "Enable legacy commands (mkenv, rmenv, lsenv, act, deact)?"
-    echo -e "${DIM}  These provide shortcuts for users familiar with virtualenv.sh${NC}"
+    echo -e "${DIM}  Shortcuts for users familiar with virtualenv.sh${NC}"
     LEGACY_COMMANDS=$(read_yn "" "Y")
     echo ""
 
-    # Pip wrapper
     echo "Enable automatic pip wrapper?"
     echo -e "${DIM}  Routes 'pip install' through PVM for package deduplication${NC}"
     PIP_WRAPPER=$(read_yn "" "Y")
     echo ""
 
-    # Auto-update interval
     echo "Auto-update Python metadata?"
     echo -e "${DIM}  Checks for new Python versions periodically${NC}"
     read -r -p "Update interval in days (0 to disable) [7]: " AUTO_UPDATE_DAYS
     AUTO_UPDATE_DAYS="${AUTO_UPDATE_DAYS:-7}"
     echo ""
 
-    # Colored output
     COLORED_OUTPUT=$(read_yn "Enable colored output?" "Y")
     echo ""
 else
@@ -198,26 +208,61 @@ else
     echo ""
 fi
 
-# Initialize configuration
-"$PVM_BIN/pvm" config init \
+"$PVM_BIN_DIR/pvm" config init \
     --legacy-commands="$LEGACY_COMMANDS" \
     --pip-wrapper="$PIP_WRAPPER" \
     --auto-update-days="$AUTO_UPDATE_DAYS" \
     --colored-output="$COLORED_OUTPUT"
 
+# Detect default shell for the init hint
+SHELL_NAME="$(basename "${SHELL:-bash}")"
+case "$SHELL_NAME" in
+    zsh)  RC_HINT="~/.zshrc";  INIT_SHELL="zsh" ;;
+    bash) RC_HINT="~/.bashrc"; INIT_SHELL="bash" ;;
+    *)    RC_HINT="~/.${SHELL_NAME}rc"; INIT_SHELL="bash" ;;
+esac
+
 echo ""
-echo -e "${GREEN}PVM installed successfully!${NC}"
+echo -e "${GREEN}✓ PVM installed${NC}"
 echo ""
-echo "Add the following to your shell configuration file (~/.bashrc, ~/.zshrc, etc.):"
+echo -e "${CYAN}━━ Next steps — copy/paste into your terminal ━━${NC}"
 echo ""
-echo -e "  ${CYAN}source ~/.pvm/pvm.sh${NC}"
+
+STEP=1
+
+# Step 1 (conditional): add PVM_BIN_DIR to PATH
+NEED_PATH=1
+case ":$PATH:" in
+    *":$PVM_BIN_DIR:"*) NEED_PATH=0 ;;
+esac
+
+if [ "$NEED_PATH" = "1" ]; then
+    echo -e "  ${YELLOW}${STEP}.${NC} Add ${CYAN}$PVM_BIN_DIR${NC} to your PATH:"
+    echo ""
+    echo -e "       ${CYAN}echo 'export PATH=\"$PVM_BIN_DIR:\$PATH\"' >> $RC_HINT${NC}"
+    echo ""
+    STEP=$((STEP+1))
+fi
+
+# Step N: enable shell integration
+echo -e "  ${YELLOW}${STEP}.${NC} Enable shell integration (activate/deactivate, completions, legacy aliases):"
 echo ""
-echo "Then restart your shell or run:"
+echo -e "       ${CYAN}echo 'eval \"\$(pvm init $INIT_SHELL)\"' >> $RC_HINT${NC}"
 echo ""
-echo -e "  ${CYAN}source ~/.pvm/pvm.sh${NC}"
+STEP=$((STEP+1))
+
+# Step N+1: reload shell
+echo -e "  ${YELLOW}${STEP}.${NC} Reload your shell so the new config takes effect:"
 echo ""
-echo "Get started:"
-echo "  pvm python available    # See available Python versions"
-echo "  pvm python install 3.12 # Install Python 3.12"
-echo "  pvm env create myenv    # Create a virtual environment"
-echo "  pvm env activate myenv  # Activate it"
+echo -e "       ${CYAN}exec $INIT_SHELL${NC}"
+echo ""
+STEP=$((STEP+1))
+
+# Step N+2: verify
+echo -e "  ${YELLOW}${STEP}.${NC} Verify the install:"
+echo ""
+echo -e "       ${CYAN}pvm doctor${NC}"
+echo ""
+
+echo -e "${DIM}First run: pvm update && pvm python install 3.12 && pvm env create myenv 3.12${NC}"
+echo -e "${DIM}Legacy alternative to step 2: \`source ~/.pvm/pvm.sh\` — still supported.${NC}"

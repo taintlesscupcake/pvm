@@ -18,17 +18,58 @@ A lightweight, standalone Python version and virtual environment manager written
 
 ## Installation
 
+### Quick install (recommended)
+
+Downloads the latest prebuilt binary for your platform, verifies its SHA256 checksum, and installs to `~/.pvm`.
+
 ```bash
-# Clone and build
+curl -fsSL https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/install.sh | bash
+```
+
+The binary is installed to `~/.local/bin/pvm` and state lives in `~/.pvm/`. Override paths with `PVM_BIN_DIR` / `PVM_HOME` if needed.
+
+Then enable shell integration (activate/deactivate + completions + legacy aliases):
+
+```bash
+# zsh
+echo 'eval "$(pvm init zsh)"' >> ~/.zshrc && eval "$(pvm init zsh)"
+
+# bash
+echo 'eval "$(pvm init bash)"' >> ~/.bashrc && eval "$(pvm init bash)"
+```
+
+If `~/.local/bin` isn't already on your `PATH`, also add `export PATH="$HOME/.local/bin:$PATH"` to your shell rc.
+
+Verify the install is healthy:
+
+```bash
+pvm doctor
+```
+
+**Non-interactive install** (skip prompts, use defaults):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/install.sh | bash -s -- --yes
+```
+
+**Pin a specific version:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/install.sh | PVM_VERSION=v0.1.0 bash
+```
+
+Supported platforms: macOS (Apple Silicon / Intel), Linux (x86_64 / aarch64).
+
+### Build from source
+
+Requires a Rust toolchain (edition 2021).
+
+```bash
 git clone https://github.com/taintlesscupcake/pvm.git
 cd pvm
 cargo build --release
-
-# Install
 ./scripts/install.sh
-
-# Add to your shell config (~/.bashrc, ~/.zshrc)
-source ~/.pvm/pvm.sh
+eval "$(pvm init zsh)"   # or: pvm init bash
 ```
 
 ## Quick Start
@@ -231,11 +272,6 @@ Package deduplication uses **hardlinks** to share files between the cache and en
 - **Shared inodes**: Multiple environments point to the same file on disk
 - **Modification propagates**: If you manually modify a cached package file, the change affects ALL environments using that file
 - **Recommended practice**: Avoid manually editing installed package files. Use `pip install --upgrade` or create a new environment if you need different versions
-
-## Supported Platforms
-
-- macOS (Apple Silicon / Intel)
-- Linux (x86_64 / aarch64)
 
 ## Development
 

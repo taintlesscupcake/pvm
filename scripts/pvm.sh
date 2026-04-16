@@ -1,12 +1,23 @@
 #!/bin/bash
-# pvm.sh - Shell wrapper for PVM (Python Version Manager)
-# Source this file in your shell config: source ~/.pvm/pvm.sh
+# pvm.sh - Shell integration for PVM (Python Version Manager)
+#
+# Load via one of:
+#   eval "$(pvm init zsh)"      # recommended (zsh)
+#   eval "$(pvm init bash)"     # recommended (bash)
+#   source ~/.pvm/pvm.sh        # legacy; still supported
 
-# PVM home directory
+# State directory (does NOT hold the binary; binary is on PATH)
 export PVM_HOME="${PVM_HOME:-$HOME/.pvm}"
 
-# PVM binary path
-PVM_BIN="$PVM_HOME/bin/pvm"
+# Migration safety net: if binary isn't on PATH but exists in the default
+# install location, add it. Covers users upgrading from the pre-0.2 layout
+# whose rc still sources this file before ~/.local/bin is added to PATH.
+if ! command -v pvm >/dev/null 2>&1 && [ -x "$HOME/.local/bin/pvm" ]; then
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+
+# Marker consumed by `pvm doctor` to confirm integration is loaded
+export PVM_SHELL_INTEGRATION=1
 
 # Load shell configuration (auto-generated from config.toml)
 _PVM_SHELL_CONF="$PVM_HOME/shell.conf"
@@ -14,21 +25,20 @@ if [ -f "$_PVM_SHELL_CONF" ]; then
     source "$_PVM_SHELL_CONF"
 fi
 
-# Default values for backward compatibility (if shell.conf doesn't exist)
+# Defaults if shell.conf doesn't exist
 : "${PVM_LEGACY_COMMANDS:=true}"
 : "${PVM_PIP_WRAPPER:=true}"
 
-# Main pvm function
+# Main pvm function — shadows the binary to intercept activate/deactivate.
+# Use `command pvm` inside to call the real binary.
 pvm() {
     case "$1 $2" in
         "env activate"|"env act")
             shift 2
             local script
-            script=$("$PVM_BIN" env activation-script "$@" 2>&1)
+            script=$(command pvm env activation-script "$@" 2>&1)
             if [ $? -eq 0 ] && [ -f "$script" ]; then
                 source "$script"
-
-                # Set up pip wrapper for deduplication (if enabled)
                 if [ "$PVM_PIP_WRAPPER" = "true" ]; then
                     _pvm_setup_pip_wrapper
                 fi
@@ -46,50 +56,30 @@ pvm() {
             fi
             ;;
         *)
-            "$PVM_BIN" "$@"
+            command pvm "$@"
             ;;
     esac
 }
 
-# Legacy alias support (for users migrating from virtualenv.sh)
-# Only define if enabled in config
+# Legacy aliases (for users migrating from virtualenv.sh)
 if [ "$PVM_LEGACY_COMMANDS" = "true" ]; then
-    # Unset any existing aliases to avoid conflicts (especially in zsh)
     unalias mkenv rmenv lsenv act activate deact 2>/dev/null
 
-    # Use 'function name { }' syntax for zsh compatibility
-    # (zsh can't parse 'name() { }' if 'name' is an existing alias at parse time)
     function mkenv {
         if [ $# -eq 2 ]; then
-            # mkenv <version> <name> -> pvm env create <name> <version>
             pvm env create "$2" "$1"
         else
             pvm env create "$@"
         fi
     }
-
-    function rmenv {
-        pvm env remove "$@"
-    }
-
-    function lsenv {
-        pvm env list "$@"
-    }
-
-    function act {
-        pvm env activate "$@"
-    }
-
-    function activate {
-        pvm env activate "$@"
-    }
-
-    function deact {
-        pvm env deactivate
-    }
+    function rmenv { pvm env remove "$@"; }
+    function lsenv { pvm env list "$@"; }
+    function act { pvm env activate "$@"; }
+    function activate { pvm env activate "$@"; }
+    function deact { pvm env deactivate; }
 fi
 
-# Shell completion
+# Shell completion (bash)
 if [ -n "$BASH_VERSION" ]; then
     _pvm_completions() {
         local cur="${COMP_WORDS[COMP_CWORD]}"
@@ -99,110 +89,78 @@ if [ -n "$BASH_VERSION" ]; then
         local ppprev=""
         [[ $COMP_CWORD -ge 3 ]] && ppprev="${COMP_WORDS[COMP_CWORD-3]}"
 
-        # Handle 4-level commands: pvm config set <key> <value>
         if [[ "$ppprev" == "config" ]] && [[ "$pprev" == "set" ]] && [[ $COMP_CWORD -eq 4 ]]; then
-            COMPREPLY=($(compgen -W "$("$PVM_BIN" _complete-config-values "$prev" 2>/dev/null)" -- "$cur"))
+            COMPREPLY=($(compgen -W "$(command pvm _complete-config-values "$prev" 2>/dev/null)" -- "$cur"))
             return
         fi
 
-        # Handle 3-level completions
         case "$pprev $prev" in
             "pvm env")
-                COMPREPLY=($(compgen -W "create remove list activate deactivate" -- "$cur"))
-                return
-                ;;
+                COMPREPLY=($(compgen -W "create remove list activate deactivate" -- "$cur")); return ;;
             "pvm python")
-                COMPREPLY=($(compgen -W "install list available remove" -- "$cur"))
-                return
-                ;;
+                COMPREPLY=($(compgen -W "install list available remove" -- "$cur")); return ;;
             "pvm config")
-                COMPREPLY=($(compgen -W "show get set sync reset" -- "$cur"))
-                return
-                ;;
+                COMPREPLY=($(compgen -W "show get set sync reset" -- "$cur")); return ;;
             "pvm pip")
-                COMPREPLY=($(compgen -W "install sync" -- "$cur"))
-                return
-                ;;
+                COMPREPLY=($(compgen -W "install sync" -- "$cur")); return ;;
             "pvm cache")
-                COMPREPLY=($(compgen -W "info list savings clean" -- "$cur"))
-                return
-                ;;
+                COMPREPLY=($(compgen -W "info list savings clean" -- "$cur")); return ;;
             "pvm completion")
-                COMPREPLY=($(compgen -W "bash zsh" -- "$cur"))
-                return
-                ;;
+                COMPREPLY=($(compgen -W "bash zsh" -- "$cur")); return ;;
+            "pvm init")
+                COMPREPLY=($(compgen -W "bash zsh" -- "$cur")); return ;;
             "env activate"|"env act"|"env remove"|"env rm")
-                # Complete with environment names using CLI helper
-                COMPREPLY=($(compgen -W "$("$PVM_BIN" _complete-envs 2>/dev/null)" -- "$cur"))
-                return
-                ;;
+                COMPREPLY=($(compgen -W "$(command pvm _complete-envs 2>/dev/null)" -- "$cur")); return ;;
             "env create"|"env new")
-                # After env name, complete with Python versions
                 if [[ $COMP_CWORD -eq 4 ]]; then
-                    COMPREPLY=($(compgen -W "$("$PVM_BIN" _complete-pythons 2>/dev/null)" -- "$cur"))
+                    COMPREPLY=($(compgen -W "$(command pvm _complete-pythons 2>/dev/null)" -- "$cur"))
                 fi
-                return
-                ;;
+                return ;;
             "python install")
-                COMPREPLY=($(compgen -W "$("$PVM_BIN" _complete-available 2>/dev/null)" -- "$cur"))
-                return
-                ;;
+                COMPREPLY=($(compgen -W "$(command pvm _complete-available 2>/dev/null)" -- "$cur")); return ;;
             "python remove"|"python rm")
-                COMPREPLY=($(compgen -W "$("$PVM_BIN" _complete-pythons 2>/dev/null)" -- "$cur"))
-                return
-                ;;
+                COMPREPLY=($(compgen -W "$(command pvm _complete-pythons 2>/dev/null)" -- "$cur")); return ;;
             "config get"|"config set")
-                COMPREPLY=($(compgen -W "$("$PVM_BIN" _complete-config-keys 2>/dev/null)" -- "$cur"))
-                return
-                ;;
+                COMPREPLY=($(compgen -W "$(command pvm _complete-config-keys 2>/dev/null)" -- "$cur")); return ;;
             "pip install")
                 if [[ "$cur" == -* ]]; then
                     COMPREPLY=($(compgen -W "-e --env" -- "$cur"))
                 elif [[ "$prev" == "-e" ]] || [[ "$prev" == "--env" ]]; then
-                    COMPREPLY=($(compgen -W "$("$PVM_BIN" _complete-envs 2>/dev/null)" -- "$cur"))
+                    COMPREPLY=($(compgen -W "$(command pvm _complete-envs 2>/dev/null)" -- "$cur"))
                 fi
-                return
-                ;;
+                return ;;
         esac
 
-        # Handle 2-level completions
         case "$prev" in
             pvm)
-                COMPREPLY=($(compgen -W "env python pip cache config update completion" -- "$cur"))
-                ;;
+                COMPREPLY=($(compgen -W "env python pip cache config update completion init doctor" -- "$cur")) ;;
             env)
-                COMPREPLY=($(compgen -W "create remove list activate deactivate" -- "$cur"))
-                ;;
+                COMPREPLY=($(compgen -W "create remove list activate deactivate" -- "$cur")) ;;
             python)
-                COMPREPLY=($(compgen -W "install list available remove" -- "$cur"))
-                ;;
+                COMPREPLY=($(compgen -W "install list available remove" -- "$cur")) ;;
             pip)
-                COMPREPLY=($(compgen -W "install sync" -- "$cur"))
-                ;;
+                COMPREPLY=($(compgen -W "install sync" -- "$cur")) ;;
             cache)
-                COMPREPLY=($(compgen -W "info list savings clean" -- "$cur"))
-                ;;
+                COMPREPLY=($(compgen -W "info list savings clean" -- "$cur")) ;;
             config)
-                COMPREPLY=($(compgen -W "show get set sync reset" -- "$cur"))
-                ;;
+                COMPREPLY=($(compgen -W "show get set sync reset" -- "$cur")) ;;
             completion)
-                COMPREPLY=($(compgen -W "bash zsh" -- "$cur"))
-                ;;
+                COMPREPLY=($(compgen -W "bash zsh" -- "$cur")) ;;
+            init)
+                COMPREPLY=($(compgen -W "bash zsh" -- "$cur")) ;;
         esac
     }
     complete -F _pvm_completions pvm
 
-    # Register completions for legacy commands
     if [ "$PVM_LEGACY_COMMANDS" = "true" ]; then
         _pvm_legacy_env_completions() {
             local cur="${COMP_WORDS[COMP_CWORD]}"
-            COMPREPLY=($(compgen -W "$("$PVM_BIN" _complete-envs 2>/dev/null)" -- "$cur"))
+            COMPREPLY=($(compgen -W "$(command pvm _complete-envs 2>/dev/null)" -- "$cur"))
         }
         _pvm_legacy_mkenv_completions() {
             local cur="${COMP_WORDS[COMP_CWORD]}"
-            # First arg is version
             if [[ $COMP_CWORD -eq 1 ]]; then
-                COMPREPLY=($(compgen -W "$("$PVM_BIN" _complete-pythons 2>/dev/null)" -- "$cur"))
+                COMPREPLY=($(compgen -W "$(command pvm _complete-pythons 2>/dev/null)" -- "$cur"))
             fi
         }
         complete -F _pvm_legacy_env_completions act
@@ -212,51 +170,37 @@ if [ -n "$BASH_VERSION" ]; then
     fi
 fi
 
+# Shell completion (zsh)
 if [ -n "$ZSH_VERSION" ]; then
-    # Helper functions for dynamic completion
     _pvm_envs() {
         local envs
-        envs=(${(f)"$("$PVM_BIN" _complete-envs 2>/dev/null)"})
-        if [[ ${#envs[@]} -gt 0 ]]; then
-            _describe 'environment' envs
-        fi
+        envs=(${(f)"$(command pvm _complete-envs 2>/dev/null)"})
+        [[ ${#envs[@]} -gt 0 ]] && _describe 'environment' envs
     }
-
     _pvm_pythons() {
         local versions
-        versions=(${(f)"$("$PVM_BIN" _complete-pythons 2>/dev/null)"})
-        if [[ ${#versions[@]} -gt 0 ]]; then
-            _describe 'version' versions
-        fi
+        versions=(${(f)"$(command pvm _complete-pythons 2>/dev/null)"})
+        [[ ${#versions[@]} -gt 0 ]] && _describe 'version' versions
     }
-
     _pvm_available() {
         local versions
-        versions=(${(f)"$("$PVM_BIN" _complete-available 2>/dev/null)"})
-        if [[ ${#versions[@]} -gt 0 ]]; then
-            _describe 'version' versions
-        fi
+        versions=(${(f)"$(command pvm _complete-available 2>/dev/null)"})
+        [[ ${#versions[@]} -gt 0 ]] && _describe 'version' versions
     }
-
     _pvm_config_keys() {
         local keys
-        keys=(${(f)"$("$PVM_BIN" _complete-config-keys 2>/dev/null)"})
-        if [[ ${#keys[@]} -gt 0 ]]; then
-            _describe 'key' keys
-        fi
+        keys=(${(f)"$(command pvm _complete-config-keys 2>/dev/null)"})
+        [[ ${#keys[@]} -gt 0 ]] && _describe 'key' keys
     }
-
     _pvm_config_values() {
         local key="$1"
         local values
-        values=(${(f)"$("$PVM_BIN" _complete-config-values "$key" 2>/dev/null)"})
-        if [[ ${#values[@]} -gt 0 ]]; then
-            _describe 'value' values
-        fi
+        values=(${(f)"$(command pvm _complete-config-values "$key" 2>/dev/null)"})
+        [[ ${#values[@]} -gt 0 ]] && _describe 'value' values
     }
 
     _pvm() {
-        local -a commands env_commands python_commands pip_commands cache_commands config_commands completion_commands
+        local -a commands env_commands python_commands pip_commands cache_commands config_commands completion_commands init_commands
         commands=(
             'env:Manage virtual environments'
             'python:Manage Python installations'
@@ -265,6 +209,8 @@ if [ -n "$ZSH_VERSION" ]; then
             'config:Manage PVM configuration'
             'update:Update Python version metadata'
             'completion:Generate shell completions'
+            'init:Print shell init script (eval this in your rc)'
+            'doctor:Diagnose PVM installation and shell integration'
         )
         env_commands=(
             'create:Create a new virtual environment'
@@ -300,96 +246,53 @@ if [ -n "$ZSH_VERSION" ]; then
             'bash:Generate bash completion script'
             'zsh:Generate zsh completion script'
         )
+        init_commands=(
+            'bash:Print bash init script'
+            'zsh:Print zsh init script'
+        )
 
         case "$words[2]" in
             env)
                 case "$words[3]" in
-                    activate|act|remove|rm)
-                        _pvm_envs
-                        ;;
+                    activate|act|remove|rm) _pvm_envs ;;
                     create|new)
-                        if [[ $CURRENT -eq 4 ]]; then
-                            # First arg is env name (no completion)
-                            :
-                        elif [[ $CURRENT -eq 5 ]]; then
-                            # Second arg is Python version
-                            _pvm_pythons
-                        fi
-                        ;;
-                    "")
-                        _describe 'env command' env_commands
-                        ;;
-                    *)
-                        _describe 'env command' env_commands
-                        ;;
-                esac
-                ;;
+                        if [[ $CURRENT -eq 5 ]]; then _pvm_pythons; fi ;;
+                    *) _describe 'env command' env_commands ;;
+                esac ;;
             python)
                 case "$words[3]" in
-                    install)
-                        _pvm_available
-                        ;;
-                    remove|rm)
-                        _pvm_pythons
-                        ;;
-                    "")
-                        _describe 'python command' python_commands
-                        ;;
-                    *)
-                        _describe 'python command' python_commands
-                        ;;
-                esac
-                ;;
+                    install) _pvm_available ;;
+                    remove|rm) _pvm_pythons ;;
+                    *) _describe 'python command' python_commands ;;
+                esac ;;
             pip)
                 case "$words[3]" in
                     install)
                         _arguments \
                             '-e[Environment name]:env:_pvm_envs' \
                             '--env[Environment name]:env:_pvm_envs' \
-                            '*:package:'
-                        ;;
-                    "")
-                        _describe 'pip command' pip_commands
-                        ;;
-                    *)
-                        _describe 'pip command' pip_commands
-                        ;;
-                esac
-                ;;
-            cache)
-                _describe 'cache command' cache_commands
-                ;;
+                            '*:package:' ;;
+                    *) _describe 'pip command' pip_commands ;;
+                esac ;;
+            cache) _describe 'cache command' cache_commands ;;
             config)
                 case "$words[3]" in
-                    get)
-                        _pvm_config_keys
-                        ;;
+                    get) _pvm_config_keys ;;
                     set)
                         if [[ $CURRENT -eq 4 ]]; then
                             _pvm_config_keys
                         elif [[ $CURRENT -eq 5 ]]; then
                             _pvm_config_values "$words[4]"
-                        fi
-                        ;;
-                    "")
-                        _describe 'config command' config_commands
-                        ;;
-                    *)
-                        _describe 'config command' config_commands
-                        ;;
-                esac
-                ;;
-            completion)
-                _describe 'completion command' completion_commands
-                ;;
-            *)
-                _describe 'command' commands
-                ;;
+                        fi ;;
+                    *) _describe 'config command' config_commands ;;
+                esac ;;
+            completion) _describe 'completion command' completion_commands ;;
+            init) _describe 'init command' init_commands ;;
+            *) _describe 'command' commands ;;
         esac
     }
     compdef _pvm pvm
 
-    # Register completions for legacy commands
     if [ "$PVM_LEGACY_COMMANDS" = "true" ]; then
         compdef _pvm_envs act
         compdef _pvm_envs activate
@@ -398,46 +301,31 @@ if [ -n "$ZSH_VERSION" ]; then
     fi
 fi
 
-# pip wrapper setup - intercepts pip install to use pvm deduplication
+# pip wrapper — intercepts `pip install` in activated envs to use pvm dedup
 _pvm_setup_pip_wrapper() {
-    # Save original deactivate function (handle both bash and zsh)
     if type deactivate &>/dev/null; then
         if [ -n "$ZSH_VERSION" ]; then
-            # zsh: direct function copy via functions array (avoids eval issues)
             functions[_pvm_original_deactivate]=${functions[deactivate]}
         else
-            # bash: use declare -f with eval
             eval "_pvm_original_deactivate() { $(declare -f deactivate | tail -n +2); }"
         fi
     fi
 
-    # Define pip wrapper function
     pip() {
         case "$1" in
             install)
                 shift
-                pvm pip install "$@"
-                ;;
+                pvm pip install "$@" ;;
             *)
-                command pip "$@"
-                ;;
+                command pip "$@" ;;
         esac
     }
 
-    # Wrap deactivate to clean up pip wrapper
     deactivate() {
-        # Remove pip wrapper
         unset -f pip 2>/dev/null
-
-        # Call original deactivate
         if type _pvm_original_deactivate &>/dev/null; then
             _pvm_original_deactivate "$@"
             unset -f _pvm_original_deactivate 2>/dev/null
         fi
     }
 }
-
-# Add pvm to PATH if not already there
-if [[ ":$PATH:" != *":$PVM_HOME/bin:"* ]]; then
-    export PATH="$PVM_HOME/bin:$PATH"
-fi

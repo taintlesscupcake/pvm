@@ -1187,7 +1187,7 @@ dependencies = [
 
 [[package]]
 name = "pvm-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1204,7 +1204,7 @@ dependencies = [
 
 [[package]]
 name = "pvm-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1227,7 +1227,7 @@ dependencies = [
 
 [[package]]
 name = "pvm-shell"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "pvm-core",

@@ -5,7 +5,9 @@ use clap::Subcommand;
 pub mod cache;
 pub mod completion;
 pub mod config;
+pub mod doctor;
 pub mod env;
+pub mod init;
 pub mod migrate;
 pub mod pip;
 pub mod python;
@@ -50,6 +52,14 @@ pub enum Commands {
         #[command(subcommand)]
         command: completion::CompletionCommands,
     },
+    /// Print shell integration script (eval this in your shell rc)
+    Init {
+        /// Target shell
+        #[arg(value_enum)]
+        shell: init::Shell,
+    },
+    /// Diagnose PVM installation and shell integration
+    Doctor,
 
     // Hidden helper commands for shell completion
     #[command(hide = true, name = "_complete-envs")]
@@ -77,6 +87,8 @@ pub async fn execute(command: Commands) -> anyhow::Result<()> {
         Commands::Update => update::execute().await,
         Commands::Migrate { command } => migrate::execute(command).await,
         Commands::Completion { command } => completion::execute(command),
+        Commands::Init { shell } => init::execute(shell),
+        Commands::Doctor => doctor::execute(),
         // Hidden completion helpers
         Commands::CompleteEnvs => completion::complete_envs(),
         Commands::CompletePythons => completion::complete_pythons(),

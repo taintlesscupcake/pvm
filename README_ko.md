@@ -18,17 +18,58 @@ Rust로 작성된 경량 독립형 Python 버전 및 가상 환경 관리자. An
 
 ## 설치
 
+### 빠른 설치 (권장)
+
+플랫폼에 맞는 최신 사전 빌드 바이너리를 내려받고 SHA256 체크섬을 검증한 뒤 `~/.pvm`에 설치합니다.
+
 ```bash
-# 클론 및 빌드
+curl -fsSL https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/install.sh | bash
+```
+
+바이너리는 `~/.local/bin/pvm`에, 상태 디렉토리는 `~/.pvm/`에 설치됩니다. 경로는 `PVM_BIN_DIR` / `PVM_HOME`으로 변경할 수 있습니다.
+
+이후 셸 통합(activate/deactivate + 자동 완성 + legacy alias)을 활성화하세요:
+
+```bash
+# zsh
+echo 'eval "$(pvm init zsh)"' >> ~/.zshrc && eval "$(pvm init zsh)"
+
+# bash
+echo 'eval "$(pvm init bash)"' >> ~/.bashrc && eval "$(pvm init bash)"
+```
+
+`~/.local/bin`이 `PATH`에 없으면 `export PATH="$HOME/.local/bin:$PATH"`도 셸 rc에 추가하세요.
+
+설치 상태 점검:
+
+```bash
+pvm doctor
+```
+
+**대화형 프롬프트 건너뛰기** (기본값 사용):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/install.sh | bash -s -- --yes
+```
+
+**특정 버전 고정:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/install.sh | PVM_VERSION=v0.1.0 bash
+```
+
+지원 플랫폼: macOS (Apple Silicon / Intel), Linux (x86_64 / aarch64).
+
+### 소스에서 빌드
+
+Rust 툴체인이 필요합니다 (edition 2021).
+
+```bash
 git clone https://github.com/taintlesscupcake/pvm.git
 cd pvm
 cargo build --release
-
-# 설치
 ./scripts/install.sh
-
-# 셸 설정에 추가 (~/.bashrc, ~/.zshrc)
-source ~/.pvm/pvm.sh
+eval "$(pvm init zsh)"   # 또는: pvm init bash
 ```
 
 ## 빠른 시작
@@ -231,11 +272,6 @@ pvm migrate env myenv -y --delete-source
 - **공유 inode**: 여러 환경이 디스크의 동일한 파일을 가리킴
 - **수정 전파**: 캐시된 패키지 파일을 수동으로 수정하면, 해당 파일을 사용하는 모든 환경에 영향
 - **권장 사항**: 설치된 패키지 파일을 수동으로 편집하지 마세요. 다른 버전이 필요하면 `pip install --upgrade`를 사용하거나 새 환경을 생성하세요
-
-## 지원 플랫폼
-
-- macOS (Apple Silicon / Intel)
-- Linux (x86_64 / aarch64)
 
 ## 개발
 
