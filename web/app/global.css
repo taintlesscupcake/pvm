@@ -1,0 +1,107 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+@theme {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* PVM brand palette */
+  --color-brand-bg: hsl(240 6% 5%);
+  --color-brand-surface: hsl(240 5% 11%);
+  --color-brand-border: hsl(240 4% 16%);
+  --color-brand-foreground: hsl(0 0% 98%);
+  --color-brand-muted: hsl(240 4% 65%);
+  --color-brand-primary: hsl(258 90% 66%); /* violet-500 */
+  --color-brand-accent: hsl(189 94% 43%); /* cyan-500 */
+  --color-brand-subtle: hsl(38 92% 50%); /* amber-500 */
+
+  --animate-marquee: marquee var(--duration, 40s) linear infinite;
+  --animate-marquee-vertical: marquee-vertical var(--duration, 40s) linear
+    infinite;
+
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(calc(-100% - var(--gap, 1rem)));
+    }
+  }
+  @keyframes marquee-vertical {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(calc(-100% - var(--gap, 1rem)));
+    }
+  }
+}
+
+/* Force dark — override Fumadocs CSS variables with PVM brand palette */
+:root,
+.dark {
+  --color-fd-background: hsl(240 6% 5%);
+  --color-fd-foreground: hsl(0 0% 98%);
+  --color-fd-muted: hsl(240 5% 11%);
+  --color-fd-muted-foreground: hsl(240 4% 65%);
+  --color-fd-popover: hsl(240 5% 9%);
+  --color-fd-popover-foreground: hsl(0 0% 96%);
+  --color-fd-card: hsl(240 5% 9%);
+  --color-fd-card-foreground: hsl(0 0% 98%);
+  --color-fd-border: hsl(240 4% 18%);
+  --color-fd-primary: hsl(258 90% 66%);
+  --color-fd-primary-foreground: hsl(0 0% 98%);
+  --color-fd-secondary: hsl(240 5% 11%);
+  --color-fd-secondary-foreground: hsl(0 0% 96%);
+  --color-fd-accent: hsl(189 94% 43% / 18%);
+  --color-fd-accent-foreground: hsl(0 0% 98%);
+  --color-fd-ring: hsl(258 90% 66%);
+  --color-fd-overlay: hsl(240 6% 0% / 60%);
+}
+
+html {
+  color-scheme: dark;
+  scrollbar-gutter: stable;
+  background-color: var(--color-fd-background);
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+/* Brand gradient utility used in landing hero/CTA */
+.brand-gradient-text {
+  background-image: linear-gradient(
+    135deg,
+    var(--color-brand-primary) 0%,
+    var(--color-brand-accent) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.brand-gradient-bg {
+  background-image: linear-gradient(
+    135deg,
+    var(--color-brand-primary) 0%,
+    var(--color-brand-accent) 100%
+  );
+}
+
+/* Subtle radial spotlight for hero backdrops */
+.brand-spotlight {
+  background:
+    radial-gradient(
+      80rem 40rem at 50% -10%,
+      hsl(258 90% 66% / 0.18),
+      transparent 60%
+    ),
+    radial-gradient(
+      60rem 30rem at 80% 20%,
+      hsl(189 94% 43% / 0.12),
+      transparent 60%
+    );
+}

@@ -1,0 +1,36 @@
+---
+title: Configuration
+description: View and change PVM settings via the config command or config.toml.
+---
+
+Configuration is stored in `~/.pvm/config.toml`. Use `pvm config` commands to read and write settings without editing the file directly.
+
+## Commands
+
+```bash
+pvm config show                 # Show current configuration
+pvm config get <key>            # Get a config value
+pvm config set <key> <value>    # Set a config value
+pvm config sync                 # Regenerate shell.conf from config.toml
+pvm config reset                # Reset configuration to defaults
+```
+
+## Available keys
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `shell.legacy_commands` | `true` | Enable legacy aliases (mkenv, rmenv, etc.) |
+| `shell.pip_wrapper` | `true` | Enable automatic pip wrapping on activate |
+| `general.auto_update_days` | `7` | Metadata auto-update interval in days |
+| `general.colored_output` | `true` | Enable colored terminal output |
+| `dedup.enabled` | `true` | Enable package deduplication |
+| `dedup.link_strategy` | `auto` | Link strategy: `auto`, `hardlink`, `clone`, `copy` |
+
+## Custom installation directory
+
+Set `PVM_HOME` to use a non-default installation path:
+
+```bash
+export PVM_HOME=/custom/path
+source ~/.pvm/pvm.sh
+```

@@ -1,0 +1,24 @@
+---
+title: Aliases
+description: Legacy shell aliases for users migrating from virtualenvwrapper or similar tools.
+---
+
+PVM ships a set of short aliases for users coming from tools like virtualenvwrapper. They are enabled by default and can be toggled off with `pvm config set shell.legacy_commands false`.
+
+## Available aliases
+
+```bash
+mkenv <version> <name>    # → pvm env create <name> <version>
+rmenv <name>              # → pvm env remove <name>
+lsenv                     # → pvm env list
+act <name>                # → pvm env activate <name>
+deact                     # → pvm env deactivate
+```
+
+## Disabling aliases
+
+```bash
+pvm config set shell.legacy_commands false
+```
+
+After changing this setting, run `pvm config sync` then restart your shell (or re-source your rc file) for the change to take effect.

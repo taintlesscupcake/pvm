@@ -1,0 +1,25 @@
+---
+title: Quick Start
+description: Get from zero to a running Python environment in five commands.
+---
+
+Once PVM is installed and shell integration is enabled, the happy path looks like this.
+
+```bash
+# Install Python
+pvm python install 3.12
+
+# Create an environment
+pvm env create myproject 3.12
+
+# Activate it
+pvm env activate myproject
+
+# Install packages — pip is automatically wrapped for deduplication
+pip install requests numpy pandas
+
+# Deactivate when done
+pvm env deactivate
+```
+
+That's it. `pip install` inside an activated environment automatically routes through PVM's deduplication layer—no extra flags needed.

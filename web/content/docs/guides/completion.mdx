@@ -1,0 +1,39 @@
+---
+title: Shell Completion
+description: Enable tab completion for PVM commands, environment names, Python versions, and config keys.
+---
+
+PVM supports tab completion for Bash and Zsh. Completions are loaded automatically when shell integration is enabled via `pvm init`.
+
+## Automatic loading
+
+Completions load automatically when you add the init hook to your shell rc:
+
+```bash
+# zsh
+eval "$(pvm init zsh)"
+
+# bash
+eval "$(pvm init bash)"
+```
+
+## Manual / standalone scripts
+
+```bash
+# Or generate standalone completion scripts
+pvm completion bash > ~/.bash_completion.d/pvm
+pvm completion zsh > ~/.zfunc/_pvm
+```
+
+You can also source `pvm.sh` directly:
+
+```bash
+source ~/.pvm/pvm.sh
+```
+
+## What completes
+
+- Commands and subcommands
+- Environment names (`pvm env activate <TAB>`)
+- Python versions (`pvm python install <TAB>`)
+- Config keys and values (`pvm config set <TAB>`)

@@ -18,3 +18,10 @@ cache/
 .claude/
 CLAUDE.md
 CLAUDE-*.md
+
+# Local tooling state
+.omc/
+.playwright-mcp/
+
+# Screenshots from local verification
+pvm-*.png

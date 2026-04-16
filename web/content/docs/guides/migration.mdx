@@ -1,0 +1,38 @@
+---
+title: Migration
+description: Import existing virtual environments from virtualenvwrapper, mise, or any directory into PVM.
+---
+
+PVM can import existing virtual environments from external sources such as virtualenvwrapper or mise-managed virtualenvs. Migration detects the Python version, installs it in PVM if needed, copies the environment, and runs deduplication.
+
+## Commands
+
+```bash
+# List environments available for migration
+pvm migrate list
+pvm migrate list --source /path/to/envs
+
+# Migrate a single environment
+pvm migrate env myenv
+pvm migrate env myenv --rename new-name    # Rename during migration
+
+# Migrate all environments at once
+pvm migrate env --all
+
+# Auto-delete source after migration
+pvm migrate env myenv --delete-source
+
+# Non-interactive mode
+pvm migrate env myenv -y --delete-source
+```
+
+**Default source:** `~/.virtualenvs/envs` (override with `--source`).
+
+## What happens during migration
+
+1. Detects Python version from the source environment's `pyvenv.cfg`
+2. Auto-installs the matching Python version in PVM if not present
+3. Copies the environment to `~/.pvm/envs/`
+4. Fixes Python symlinks to point to the PVM-managed Python
+5. Runs `pvm pip sync` to deduplicate packages into the cache
+6. Optionally deletes the source environment (prompts by default)

@@ -1,0 +1,18 @@
+---
+title: Welcome
+description: PVM is a lightweight, standalone Python version and virtual environment manager written in Rust.
+---
+
+PVM gives you centrally-managed Python environments without the bloat of Anaconda or the project-local-only model of uv/mise. One binary, no external dependencies, fast installs, and automatic package deduplication via hardlinks.
+
+## Why PVM?
+
+| Feature | PVM | uv/mise | Anaconda |
+|---------|-----|---------|----------|
+| Shared environments | ✅ | ❌ (project-local) | ✅ |
+| Package deduplication | ✅ (hardlinks) | ✅ | ❌ |
+| No external dependencies | ✅ | ❌ | ❌ |
+| Single binary | ✅ (2.6 MB) | ✅ | ❌ |
+| Fast | ✅ | ✅ | ❌ |
+
+**Key differentiator**: One Python version can create multiple virtual environments, usable across different projects. Unlike tools that create `.venv` in each project directory, PVM manages environments centrally—just like Anaconda, but without the bloat.

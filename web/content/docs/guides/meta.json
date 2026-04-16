@@ -1,0 +1,13 @@
+{
+  "title": "Guides",
+  "pages": [
+    "python-management",
+    "environments",
+    "pip-deduplication",
+    "cache",
+    "configuration",
+    "migration",
+    "aliases",
+    "completion"
+  ]
+}

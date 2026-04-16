@@ -1,0 +1,20 @@
+---
+title: Python Management
+description: Install, list, and remove Python versions managed by PVM.
+---
+
+PVM downloads prebuilt Python binaries from [python-build-standalone](https://github.com/astral-sh/python-build-standalone) (maintained by Astral, creators of uv/ruff). Versions 3.8 through 3.14 are supported.
+
+## Commands
+
+```bash
+pvm python install <version>    # Install Python (e.g., 3.12, 3.11.9, 3.8)
+pvm python list                 # List installed versions
+pvm python available            # Show available versions (3.8 - 3.14)
+pvm python remove <version>     # Remove a version
+pvm update                      # Refresh available Python versions metadata
+```
+
+## Version metadata
+
+PVM uses [uv's download-metadata.json](https://github.com/astral-sh/uv) to map Python version strings to the correct release tags. Metadata is cached locally at `~/.pvm/python-metadata.json` and auto-updates every 7 days. Run `pvm update` to refresh manually.

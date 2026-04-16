@@ -1,0 +1,33 @@
+---
+title: How It Works
+description: Internals of Python installation, environment creation, activation, and package deduplication.
+---
+
+PVM is a thin coordinator: it delegates the heavy lifting to well-established upstream projects and OS primitives.
+
+## 1. Python installation
+
+PVM downloads prebuilt Python binaries from [python-build-standalone](https://github.com/astral-sh/python-build-standalone), maintained by Astral (creators of uv/ruff). Binaries are extracted and stored under `~/.pvm/pythons/<version>/`.
+
+## 2. Version metadata
+
+PVM uses [uv's download-metadata.json](https://github.com/astral-sh/uv) to map version strings (e.g., `3.12`) to the correct release tag and platform-specific download URL. Metadata is cached at `~/.pvm/python-metadata.json` and auto-refreshes every 7 days. Run `pvm update` to refresh on demand.
+
+## 3. Environment creation
+
+`pvm env create` calls Python's built-in `venv` module to create an isolated environment under `~/.pvm/envs/<name>/`.
+
+## 4. Activation
+
+`pvm env activate` sources the environment's activate script through the shell wrapper (`pvm.sh`) and additionally wraps `pip install` so that any call to `pip install` inside the active session is intercepted and routed through PVM's deduplication layer.
+
+## 5. Package deduplication
+
+When packages are installed via `pip install` (in an activated environment) or `pvm pip install`, PVM:
+
+1. Installs the package normally into the environment's `site-packages`.
+2. Computes a content hash for each installed file.
+3. Moves matching files into the global cache at `~/.pvm/packages/store/`.
+4. Creates a hardlink from the environment's `site-packages` back to the cache entry.
+
+Subsequent environments that install the same package version skip the download and directly hardlink from the cache, saving both download time and disk space.

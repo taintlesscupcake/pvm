@@ -1,0 +1,36 @@
+---
+title: Pip & Deduplication
+description: How PVM wraps pip install to deduplicate packages across environments using hardlinks.
+---
+
+When a PVM environment is active, `pip install` is automatically intercepted and routed through PVM's deduplication layer. Identical packages across environments are stored once in a global cache and hardlinked into each environment's `site-packages`. This can save significant disk space when multiple environments share common packages like NumPy or PyTorch.
+
+## Automatic wrapping
+
+```bash
+# Activate an environment first
+pvm env activate myproject
+
+# pip install now uses deduplication automatically
+pip install requests numpy           # → routes to pvm pip install
+pip install -r requirements.txt      # Works with all pip install options
+
+# Other pip commands work normally
+pip uninstall requests               # → uses regular pip
+pip freeze                           # → uses regular pip
+pip list                             # → uses regular pip
+```
+
+## Explicit pvm pip commands
+
+You can also call `pvm pip` directly without activating an environment first:
+
+```bash
+pvm pip install <packages>           # Install with deduplication
+pvm pip install -r requirements.txt  # Supports all pip options
+pvm pip sync                         # Deduplicate existing packages in current env
+
+# Specify a target environment without activating it
+pvm pip install -e <env> <packages>
+pvm pip sync -e <env>
+```

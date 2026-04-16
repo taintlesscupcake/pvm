@@ -1,0 +1,20 @@
+---
+title: Environments
+description: Create, activate, deactivate, and remove named Python virtual environments.
+---
+
+PVM manages environments centrally in `~/.pvm/envs/`. An environment can be activated in any project directory, and multiple projects can share the same environment—just like Anaconda, but without the overhead.
+
+## Commands
+
+```bash
+pvm env create <name> [version] # Create environment (interactive version picker if no version given)
+pvm env list                    # List all environments
+pvm env activate <name>         # Activate environment
+pvm env deactivate              # Deactivate current environment
+pvm env remove <name>           # Remove environment
+```
+
+## How activation works
+
+`pvm env activate` sources the environment's activate script via the shell wrapper and wraps `pip install` to automatically route through PVM's deduplication layer. No manual configuration is required.

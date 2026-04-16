@@ -1,0 +1,23 @@
+---
+title: Hardlink Caveats
+description: What to know about shared inodes when PVM deduplicates packages via hardlinks.
+---
+
+Package deduplication uses **hardlinks** to share files between the global cache and each environment's `site-packages`. This is what makes deduplication effective, but it has a consequence worth understanding.
+
+<Callout type="warn">
+**Shared inodes**: Multiple environments point to the same physical file on disk. If you manually modify a cached package file, the change propagates to **every environment** that hardlinks to that file.
+</Callout>
+
+## Implications
+
+- **Do not edit installed package files in-place.** Changes will silently affect all other environments sharing that file.
+- **Upgrades are safe.** `pip install --upgrade` installs a new version, which gets its own cache entry and new hardlinks—existing files are not touched.
+- **Uninstall is safe.** Removing a package from one environment only removes the hardlink in that environment; the cache entry remains until `pvm cache clean` determines it is orphaned.
+- **Cross-filesystem moves will break hardlinks.** If you move `~/.pvm` to a different filesystem partition, hardlinks become copies. Re-run `pvm pip sync` to re-establish deduplication.
+
+## Recommended practice
+
+- Avoid manually editing files inside `~/.pvm/envs/` or `~/.pvm/packages/`.
+- Use `pip install --upgrade <package>` or create a new environment if you need a different version.
+- Run `pvm cache clean` periodically to remove packages no longer referenced by any environment.

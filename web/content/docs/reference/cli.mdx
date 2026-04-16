@@ -1,0 +1,81 @@
+---
+title: CLI Reference
+description: Complete command reference for all PVM subcommands, grouped by namespace.
+---
+
+All PVM functionality is exposed through the `pvm` binary. Commands are grouped by namespace below.
+
+## python
+
+```bash
+pvm python install <version>    # Install Python (e.g., 3.12, 3.11.9, 3.8)
+pvm python list                 # List installed versions
+pvm python available            # Show available versions (3.8 - 3.14)
+pvm python remove <version>     # Remove a version
+```
+
+## env
+
+```bash
+pvm env create <name> [version] # Create environment (interactive if no version)
+pvm env list                    # List all environments
+pvm env activate <name>         # Activate environment
+pvm env deactivate              # Deactivate current environment
+pvm env remove <name>           # Remove environment
+```
+
+## pip
+
+```bash
+pvm pip install <packages>           # Install with deduplication
+pvm pip install -r requirements.txt  # Supports all pip options
+pvm pip sync                         # Deduplicate existing packages in current env
+pvm pip install -e <env> <packages>  # Target a specific env without activating
+pvm pip sync -e <env>                # Deduplicate packages in a specific env
+```
+
+## cache
+
+```bash
+pvm cache info                  # Show cache statistics
+pvm cache list                  # List cached packages
+pvm cache savings               # Show disk space savings
+pvm cache clean                 # Remove orphaned packages
+```
+
+## config
+
+```bash
+pvm config show                 # Show current configuration
+pvm config get <key>            # Get a config value
+pvm config set <key> <value>    # Set a config value
+pvm config sync                 # Regenerate shell.conf from config.toml
+pvm config reset                # Reset configuration to defaults
+```
+
+## migrate
+
+```bash
+pvm migrate list                             # List environments available for migration
+pvm migrate list --source /path/to/envs      # List from a custom source path
+pvm migrate env <name>                       # Migrate a single environment
+pvm migrate env <name> --rename <new-name>   # Rename during migration
+pvm migrate env --all                        # Migrate all environments
+pvm migrate env <name> --delete-source       # Auto-delete source after migration
+pvm migrate env <name> -y --delete-source    # Non-interactive mode
+```
+
+## completion
+
+```bash
+pvm completion bash    # Output Bash completion script
+pvm completion zsh     # Output Zsh completion script
+```
+
+## top-level
+
+```bash
+pvm update             # Refresh available Python versions metadata
+pvm init <shell>       # Output shell integration (bash or zsh)
+pvm doctor             # Verify installation health
+```

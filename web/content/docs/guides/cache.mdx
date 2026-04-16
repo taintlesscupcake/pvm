@@ -1,0 +1,15 @@
+---
+title: Cache
+description: Inspect, measure, and clean PVM's global package deduplication cache.
+---
+
+PVM maintains a content-addressable package cache at `~/.pvm/packages/`. Packages installed via `pvm pip install` or the wrapped `pip install` are stored here and hardlinked into environment `site-packages` directories.
+
+## Commands
+
+```bash
+pvm cache info                  # Show cache statistics
+pvm cache list                  # List cached packages
+pvm cache savings               # Show disk space savings from deduplication
+pvm cache clean                 # Remove orphaned packages from the cache
+```

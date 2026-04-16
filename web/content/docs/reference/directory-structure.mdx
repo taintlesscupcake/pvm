@@ -1,0 +1,24 @@
+---
+title: Directory Structure
+description: Layout of the ~/.pvm directory and what each path contains.
+---
+
+All PVM state lives under `~/.pvm/` by default. Set `PVM_HOME` to use a different root.
+
+```
+~/.pvm/
+├── bin/pvm                 # PVM binary
+├── pvm.sh                  # Shell integration script
+├── python-metadata.json    # Cached version metadata (auto-updated every 7 days)
+├── config.toml             # User configuration
+├── pythons/                # Installed Python versions
+│   ├── 3.12.4/
+│   └── 3.11.9/
+├── envs/                   # Virtual environments
+│   ├── myproject/
+│   └── datascience/
+├── packages/               # Deduplicated package cache
+│   ├── metadata.json       # Cache metadata
+│   └── store/              # Content-addressable storage
+└── cache/                  # Download cache
+```
