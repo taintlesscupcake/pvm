@@ -76,30 +76,63 @@ echo "Platform: $FULL_PLATFORM"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_BIN="$SCRIPT_DIR/../target/release/pvm"
 
+BUNDLED_SHELL_SCRIPT=""
+
 if [ -f "$SOURCE_BIN" ]; then
     echo "Installing from local build..."
     cp "$SOURCE_BIN" "$PVM_BIN/pvm"
 else
-    # Download from releases
+    # Download prebuilt release archive
     echo "Downloading PVM..."
-    LATEST_URL="https://github.com/taintlesscupcake/pvm/releases/latest/download/pvm-${FULL_PLATFORM}"
-    curl -fsSL "$LATEST_URL" -o "$PVM_BIN/pvm" || {
-        echo -e "${RED}Failed to download PVM. Please build from source.${NC}"
+    TMPDIR="$(mktemp -d)"
+    trap 'rm -rf "$TMPDIR"' EXIT
+
+    ARCHIVE="pvm-${FULL_PLATFORM}.tar.gz"
+    RELEASE_BASE="${PVM_RELEASE_URL:-https://github.com/taintlesscupcake/pvm/releases/latest/download}"
+    ARCHIVE_URL="${RELEASE_BASE}/${ARCHIVE}"
+    CHECKSUM_URL="${ARCHIVE_URL}.sha256"
+
+    curl -fsSL "$ARCHIVE_URL" -o "$TMPDIR/$ARCHIVE" || {
+        echo -e "${RED}Failed to download PVM from ${ARCHIVE_URL}${NC}"
+        echo -e "${RED}Build from source instead: cargo build --release && ./scripts/install.sh${NC}"
         exit 1
     }
+
+    if curl -fsSL "$CHECKSUM_URL" -o "$TMPDIR/$ARCHIVE.sha256" 2>/dev/null; then
+        ( cd "$TMPDIR" && shasum -a 256 -c "$ARCHIVE.sha256" >/dev/null ) || {
+            echo -e "${RED}Checksum verification failed for ${ARCHIVE}${NC}"
+            exit 1
+        }
+    else
+        echo -e "${YELLOW}Warning: checksum file unavailable, skipping verification${NC}"
+    fi
+
+    tar -xzf "$TMPDIR/$ARCHIVE" -C "$TMPDIR"
+    EXTRACTED_DIR="$(find "$TMPDIR" -mindepth 1 -maxdepth 1 -type d -name 'pvm-*' | head -n 1)"
+    if [ -z "$EXTRACTED_DIR" ] || [ ! -f "$EXTRACTED_DIR/pvm" ]; then
+        echo -e "${RED}Archive did not contain expected pvm binary${NC}"
+        exit 1
+    fi
+
+    cp "$EXTRACTED_DIR/pvm" "$PVM_BIN/pvm"
+    if [ -f "$EXTRACTED_DIR/pvm.sh" ]; then
+        cp "$EXTRACTED_DIR/pvm.sh" "$PVM_HOME/pvm.sh"
+        BUNDLED_SHELL_SCRIPT=1
+    fi
 fi
 
 chmod +x "$PVM_BIN/pvm"
 
-# Install shell wrapper
-SHELL_SCRIPT="$SCRIPT_DIR/pvm.sh"
-if [ -f "$SHELL_SCRIPT" ]; then
-    cp "$SHELL_SCRIPT" "$PVM_HOME/pvm.sh"
-else
-    # Download shell wrapper
-    curl -fsSL "https://raw.githubusercontent.com/sungjin/pvm/main/scripts/pvm.sh" -o "$PVM_HOME/pvm.sh" || {
-        echo -e "${RED}Warning: Could not download shell wrapper${NC}"
-    }
+# Install shell wrapper (skip if already bundled from the release archive)
+if [ -z "$BUNDLED_SHELL_SCRIPT" ]; then
+    SHELL_SCRIPT="$SCRIPT_DIR/pvm.sh"
+    if [ -f "$SHELL_SCRIPT" ]; then
+        cp "$SHELL_SCRIPT" "$PVM_HOME/pvm.sh"
+    else
+        curl -fsSL "https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/pvm.sh" -o "$PVM_HOME/pvm.sh" || {
+            echo -e "${RED}Warning: Could not download shell wrapper${NC}"
+        }
+    fi
 fi
 
 # Configuration setup
