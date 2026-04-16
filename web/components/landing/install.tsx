@@ -6,10 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/cn';
 
 const installCommands: Record<string, string> = {
-  macos:
-    'curl -fsSL https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/install.sh | bash',
-  linux:
-    'curl -fsSL https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/install.sh | bash',
+  macos: 'curl -fsSL https://pvm.sungjin.dev/install.sh | bash',
+  linux: 'curl -fsSL https://pvm.sungjin.dev/install.sh | bash',
   source:
     'git clone https://github.com/taintlesscupcake/pvm.git && cd pvm && cargo build --release && ./scripts/install.sh',
 };

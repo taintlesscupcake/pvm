@@ -143,7 +143,7 @@ fi
 
 # Fallback pvm.sh from the repo if not written above (rare)
 if [ ! -f "$PVM_HOME/pvm.sh" ]; then
-    curl -fsSL "https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/pvm.sh" \
+    curl -fsSL "https://pvm.sungjin.dev/pvm.sh" \
         -o "$PVM_HOME/pvm.sh" 2>/dev/null \
         || echo -e "${YELLOW}Warning: could not fetch pvm.sh fallback${NC}"
 fi

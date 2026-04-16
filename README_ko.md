@@ -23,7 +23,7 @@ Rust로 작성된 경량 독립형 Python 버전 및 가상 환경 관리자. An
 플랫폼에 맞는 최신 사전 빌드 바이너리를 내려받고 SHA256 체크섬을 검증한 뒤 `~/.pvm`에 설치합니다.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/install.sh | bash
+curl -fsSL https://pvm.sungjin.dev/install.sh | bash
 ```
 
 바이너리는 `~/.local/bin/pvm`에, 상태 디렉토리는 `~/.pvm/`에 설치됩니다. 경로는 `PVM_BIN_DIR` / `PVM_HOME`으로 변경할 수 있습니다.
@@ -49,13 +49,13 @@ pvm doctor
 **대화형 프롬프트 건너뛰기** (기본값 사용):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/install.sh | bash -s -- --yes
+curl -fsSL https://pvm.sungjin.dev/install.sh | bash -s -- --yes
 ```
 
 **특정 버전 고정:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/install.sh | PVM_VERSION=v0.1.0 bash
+curl -fsSL https://pvm.sungjin.dev/install.sh | PVM_VERSION=v0.1.0 bash
 ```
 
 지원 플랫폼: macOS (Apple Silicon / Intel), Linux (x86_64 / aarch64).

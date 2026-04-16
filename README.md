@@ -25,7 +25,7 @@ A lightweight, standalone Python version and virtual environment manager written
 Downloads the latest prebuilt binary for your platform, verifies its SHA256 checksum, and installs to `~/.pvm`.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/install.sh | bash
+curl -fsSL https://pvm.sungjin.dev/install.sh | bash
 ```
 
 The binary is installed to `~/.local/bin/pvm` and state lives in `~/.pvm/`. Override paths with `PVM_BIN_DIR` / `PVM_HOME` if needed.
@@ -51,13 +51,13 @@ pvm doctor
 **Non-interactive install** (skip prompts, use defaults):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/install.sh | bash -s -- --yes
+curl -fsSL https://pvm.sungjin.dev/install.sh | bash -s -- --yes
 ```
 
 **Pin a specific version:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/taintlesscupcake/pvm/main/scripts/install.sh | PVM_VERSION=v0.1.0 bash
+curl -fsSL https://pvm.sungjin.dev/install.sh | PVM_VERSION=v0.1.0 bash
 ```
 
 Supported platforms: macOS (Apple Silicon / Intel), Linux (x86_64 / aarch64).
